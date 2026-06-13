@@ -1,0 +1,12 @@
+base_url: "https://opensource-demo.orangehrmlive.com"
+browser: "chrome"
+# headless: false
+headless: true
+timeouts:
+  explicit_wait_seconds: 15
+credentials:
+  username_env: "ORANGEHRM_USERNAME"
+  password_env: "ORANGEHRM_PASSWORD"
+artifcats:
+  screenshots_dir: "reports/screenshots"
+  
