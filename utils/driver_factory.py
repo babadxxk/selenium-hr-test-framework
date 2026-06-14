@@ -40,12 +40,22 @@ def create_chrome_driver(headless: bool = True) -> webdriver.Chrome:
 
     _clear_stale_wdm_lock()
 
-    try:
-        service = ChromeService(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-    except Exception:
-        os.environ.setdefault("SE_MANAGER_DRIVER_TIMEOUT", "120")
-        driver = webdriver.Chrome(options=options)
+    last_exc: Exception | None = None
+    for _ in range(3):
+        try:
+            service = ChromeService(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.maximize_window()
+            return driver
+        except Exception as exc:
+            last_exc = exc
 
-    driver.maximize_window()
-    return driver
+    os.environ.setdefault("SE_MANAGER_DRIVER_TIMEOUT", "120")
+    try:
+        driver = webdriver.Chrome(options=options)
+        driver.maximize_window()
+        return driver
+    except Exception:
+        if last_exc:
+            raise last_exc
+        raise
