@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -21,7 +26,7 @@ class BasePage:
 
     def __init__(self, driver: WebDriver, timeout: int = 15):
         self.driver = driver
-        self.timeout = timeout
+        self.timeout = getattr(driver, "explicit_wait", timeout)
 
     def open(self, url: str) -> None:
         self.driver.get(url)
@@ -33,7 +38,14 @@ class BasePage:
                 return
             except StaleElementReferenceException:
                 continue
-        wait_clickable(self.driver, by, locator, self.timeout).click()
+            except (ElementClickInterceptedException, ElementNotInteractableException, TimeoutException):
+                break
+
+        element = wait_present(self.driver, by, locator, self.timeout)
+        self.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();",
+            element,
+        )
 
     def action_type(self, by: By, locator: str, value: str) -> None:
         element = wait_visible(self.driver, by, locator, self.timeout)
@@ -41,7 +53,11 @@ class BasePage:
         element.send_keys(value)
 
     def action_clear_and_type(self, by: By, locator: str, value: str) -> None:
-        element = wait_clickable(self.driver, by, locator, self.timeout)
+        try:
+            element = wait_clickable(self.driver, by, locator, self.timeout)
+        except TimeoutException:
+            element = wait_visible(self.driver, by, locator, self.timeout)
+
         element.clear()
         element.send_keys(value)
 

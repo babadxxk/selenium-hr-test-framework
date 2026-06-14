@@ -151,6 +151,10 @@ class DashboardPage(BasePage):
                 element,
             )
 
+    def action_click_sidebar_item(self, label: str) -> None:
+        locator = (By.XPATH, f"//a[normalize-space()='{label}']")
+        self.action_click_sidebar_menu(*locator)
+
     def action_click_assign_leave(self) -> None:
         self.action_click(*self.LOC_ASSIGN_LEAVE)
         wait_url_contains(self.driver, "/leave/assignLeave", self.timeout)
@@ -186,6 +190,7 @@ class DashboardPage(BasePage):
     def action_go_to_pim(self) -> None:
         self.action_click_sidebar_menu(*self.LOC_PIM_MENU)
         wait_url_contains(self.driver, "/pim", self.timeout)
+        wait_visible(self.driver, *self.LOC_HEADER, self.timeout)
 
     def action_go_to_leave(self) -> None:
         self.action_click_sidebar_menu(*self.LOC_LEAVE_MENU)

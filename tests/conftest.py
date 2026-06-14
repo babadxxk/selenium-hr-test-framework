@@ -30,6 +30,7 @@ def config() -> dict:
 @pytest.fixture(scope="function")
 def driver(config: dict) -> Generator:
     webdriver = create_chrome_driver(headless=config.get("headless", True))
+    webdriver.explicit_wait = config.get("timeouts", {}).get("explicit_wait_seconds", 15)
     webdriver.get(config["base_url"])
     yield webdriver
     webdriver.quit()
