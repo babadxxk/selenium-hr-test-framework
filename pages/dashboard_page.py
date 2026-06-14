@@ -88,28 +88,6 @@ class DashboardPage(BasePage):
     def is_dashboard_header_visible(self) -> bool:
         return self.is_visible(*self.LOC_HEADER)
 
-    # def get_visible_widgets_count(self) -> int:
-    #     wait_url_contains(self.driver, "/dashboard", self.timeout)
-    #     wait_visible(self.driver, *self.LOC_QUICK_LAUNCH, self.timeout)
-
-    #     widgets = self.driver.find_elements(*self.LOC_WIDGETS)
-    #     return len([widget for widget in widgets if widget.is_displayed()])
-    
-    # def get_visible_widget_title_count(self, widget_title: str) -> int:
-    #     # Count widget containers that contain the given title and are visible.
-    #     containers = self.driver.find_elements(*self.LOC_WIDGETS)
-    #     count = 0
-    #     for container in containers:
-    #         try:
-    #             title = container.find_element(By.XPATH, f".//*[normalize-space()='{widget_title}']")
-    #             if container.is_displayed() and title.is_displayed():
-    #                 count += 1
-    #         except Exception:
-    #             # title not found inside this container
-    #             continue
-
-    #     return count
-
     def action_logout(self) -> None:
         self.action_click(*self.LOC_USER_DROPDOWN)
         self.action_click(*self.LOC_LOGOUT)

@@ -70,32 +70,6 @@ def test_dashboard_chart_widgets_visible(logged_in_driver):
     )
 
 
-# @pytest.mark.dashboard
-# @pytest.mark.regression
-# def test_dashboard_refresh_does_not_duplicate_widgets(logged_in_driver):
-#     """
-#     FR-DASH-07:
-#     Repeated dashboard refresh must not duplicate widgets or corrupt UI.
-#     """
-#     dashboard_page = DashboardPage(logged_in_driver)
-
-#     assert dashboard_page.get_header_text() == "Dashboard"
-#     assert dashboard_page.is_quick_launch_visible()
-
-#     for _ in range(3):
-#         dashboard_page.action_refresh_dashboard()
-
-#         assert dashboard_page.get_header_text() == "Dashboard"
-#         assert dashboard_page.is_time_at_work_visible()
-#         assert dashboard_page.is_my_actions_visible()
-#         assert dashboard_page.is_quick_launch_visible()
-
-#     assert dashboard_page.get_visible_widget_title_count("Time at Work") == 1
-#     assert dashboard_page.get_visible_widget_title_count("My Actions") == 1
-#     assert dashboard_page.get_visible_widget_title_count("Quick Launch") == 1
-
-
-
 @pytest.mark.dashboard
 @pytest.mark.regression
 @pytest.mark.parametrize(
