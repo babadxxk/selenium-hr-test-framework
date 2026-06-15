@@ -224,3 +224,10 @@ class DashboardPage(BasePage):
     def action_go_to_buzz(self) -> None:
         self.action_click_sidebar_menu(*self.LOC_BUZZ_MENU)
         wait_url_contains(self.driver, "/buzz", self.timeout)
+
+    def action_go_to_project_info_customers(self) -> None:
+        """Navigate to Project Info > Customers page from Time module."""
+        self.action_go_to_time()
+        wait_visible(self.driver, By.XPATH, "//a[normalize-space()='Customers']", self.timeout)
+        self.action_click(By.XPATH, "//a[normalize-space()='Customers']")
+        wait_url_contains(self.driver, "customers", self.timeout)
