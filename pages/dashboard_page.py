@@ -205,6 +205,7 @@ class DashboardPage(BasePage):
         wait_url_contains(self.driver, "/recruitment", self.timeout)
 
     def action_go_to_my_info(self) -> None:
+        self.action_go_to_dashboard()
         self.action_click_sidebar_menu(*self.LOC_MY_INFO_MENU)
         wait_url_contains(self.driver, "/pim/viewPersonalDetails", self.timeout)
 
