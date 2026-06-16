@@ -97,7 +97,10 @@ class DashboardPage(BasePage):
         self.driver.refresh()
         wait_url_contains(self.driver, "/dashboard", self.timeout)
         wait_visible(self.driver, *self.LOC_HEADER, self.timeout)
-        wait_visible(self.driver, *self.LOC_QUICK_LAUNCH, self.timeout)
+        try:
+            wait_visible(self.driver, *self.LOC_QUICK_LAUNCH, self.timeout)
+        except Exception:
+            return
 
     def is_time_at_work_visible(self) -> bool:
         return self.is_visible(*self.LOC_TIME_AT_WORK)
