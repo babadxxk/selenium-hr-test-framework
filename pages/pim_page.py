@@ -137,7 +137,7 @@ class PIMPage(BasePage):
     def wait_for_search_results(self) -> None:
         def search_ready(driver):
             rows = driver.find_elements(*self.LOC_TABLE_ROWS)
-            if any(row.is_displayed() and row.text.strip() for row in rows):
+            if any(row.text.strip() for row in rows):
                 return True
             try:
                 records = driver.find_elements(*self.LOC_NO_RECORDS)
