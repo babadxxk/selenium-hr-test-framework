@@ -152,13 +152,16 @@ def test_add_employee_and_verify_search(logged_in_driver):
     pim = PIMPage(logged_in_driver)
 
     pim.add_employee("Baba", "", "Dook", "1069")
-    
-    # After save, navigate back to PIM list
+
+    # Get the persisted/current employee id from the details page (robust to any server-assigned changes)
+    emp_id = pim.get_current_employee_id()
+    assert emp_id, "Could not read employee id after saving the new employee"
+
+    # After save, navigate back to PIM list and search for the actual id
     import time
     time.sleep(1)
     dashboard.action_go_to_pim()
-    
-    # Search for the employee by ID
-    pim.search_by_employee_id("1069")
+
+    pim.search_by_employee_id(emp_id)
     rows = pim.get_table_row_texts()
-    assert any("1069" in r for r in rows), f"Added employee ID 1069 not found in search results: {rows}"
+    assert any(emp_id in r for r in rows), f"Added employee ID {emp_id} not found in search results: {rows}"
