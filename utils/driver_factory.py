@@ -32,6 +32,9 @@ def create_chrome_driver(headless: bool = True) -> webdriver.Chrome:
     options.add_argument("--disable-logging")
     options.add_argument("--log-level=3")
     options.add_argument("--window-size=1920,1080")
+    # Ensure consistent device scale and DPI handling across Windows environments
+    options.add_argument("--force-device-scale-factor=1")
+    options.add_argument("--high-dpi-support=1")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")

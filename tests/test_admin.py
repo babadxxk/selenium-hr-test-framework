@@ -8,6 +8,7 @@ from pages.dashboard_page import DashboardPage
 
 @pytest.mark.admin
 @pytest.mark.regression
+@pytest.mark.smoke
 def test_system_users_page_loads_and_shows_user_list(logged_in_driver):
     """FR-ADM-01: System Users page must load and display the user list table."""
     dashboard = DashboardPage(logged_in_driver)

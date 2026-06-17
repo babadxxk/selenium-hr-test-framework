@@ -8,6 +8,7 @@ from pages.my_info_page import MyInfoPage
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_personal_details_fields_visible(logged_in_driver):
     """FR-MI-01: Personal Details tab must load with key fields visible."""
     dashboard = DashboardPage(logged_in_driver)
@@ -25,6 +26,7 @@ def test_personal_details_fields_visible(logged_in_driver):
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_contact_details_tab_fields_visible(logged_in_driver):
     """FR-MI-03: Contact Details tab must show address, telephone, mobile and work email."""
     dashboard = DashboardPage(logged_in_driver)
@@ -41,6 +43,7 @@ def test_contact_details_tab_fields_visible(logged_in_driver):
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_invalid_work_email_shows_validation(logged_in_driver):
     """FR-MI-04: Invalid work email should show validation error on save."""
     dashboard = DashboardPage(logged_in_driver)
@@ -64,6 +67,7 @@ def test_invalid_work_email_shows_validation(logged_in_driver):
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_dependants_tab_and_add_button(logged_in_driver):
     """FR-MI-05: Dependants tab must load and Add button present."""
     dashboard = DashboardPage(logged_in_driver)
@@ -79,6 +83,7 @@ def test_dependants_tab_and_add_button(logged_in_driver):
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_immigration_tab_loads_and_shows_fields(logged_in_driver):
     """FR-MI-06: Immigration tab must load and display immigration fields."""
     dashboard = DashboardPage(logged_in_driver)
@@ -94,6 +99,7 @@ def test_immigration_tab_loads_and_shows_fields(logged_in_driver):
 
 
 @pytest.mark.my_info
+@pytest.mark.regression
 def test_add_work_experience_in_qualifications(logged_in_driver):
     """FR-MI-07: Adding a Work Experience entry in Qualifications must save successfully."""
     dashboard = DashboardPage(logged_in_driver)

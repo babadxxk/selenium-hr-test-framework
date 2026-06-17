@@ -9,6 +9,7 @@ from pages.directory_page import DirectoryPage
 
 
 @pytest.mark.directory
+@pytest.mark.smoke
 def test_directory_page_loads_and_displays_employee_cards(logged_in_driver):
     """FR-DIR-01: Directory page must load and display employee cards without any search filter applied."""
     dashboard = DashboardPage(logged_in_driver)
@@ -22,6 +23,7 @@ def test_directory_page_loads_and_displays_employee_cards(logged_in_driver):
 
 
 @pytest.mark.directory
+@pytest.mark.regression
 def test_directory_cards_display_name_and_avatar(logged_in_driver):
     """FR-DIR-02: Each `orangehrm-directory-card` must display the employee's name and avatar (verify all present)."""
     dashboard = DashboardPage(logged_in_driver)
@@ -42,6 +44,7 @@ def test_directory_cards_display_name_and_avatar(logged_in_driver):
 
 
 @pytest.mark.directory
+@pytest.mark.regression
 def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver):
     """FR-DIR-03: Searching by Employee Name must return cards with avatar and employee name; clicking opens the employee card."""
     dashboard = DashboardPage(logged_in_driver)
@@ -85,6 +88,7 @@ def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver
 
 
 @pytest.mark.directory
+@pytest.mark.regression
 def test_search_by_nonexistent_name_shows_validation(logged_in_driver):
     """FR-DIR-04: Searching by a name that matches no employee must display an invalid-field validation error."""
     dashboard = DashboardPage(logged_in_driver)

@@ -8,6 +8,7 @@ from utils.wait_helpers import wait_url_contains, wait_visible
 
 @pytest.mark.time
 @pytest.mark.regression
+@pytest.mark.smoke
 def test_employee_timesheets_page_loads(logged_in_driver, config):
     """FR-TIME-01: Employee Timesheets page must load and display the search form with Employee Name field."""
     timesheets_url = f"{config['base_url']}/web/index.php/time/viewEmployeeTimesheet"

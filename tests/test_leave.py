@@ -8,6 +8,7 @@ from pages.leave_page import LeavePage
 
 
 @pytest.mark.leave
+@pytest.mark.smoke
 def test_leave_list_loads_and_displays_table(logged_in_driver):
     """FR-LV-01: Leave List page must load and display the leave records table."""
     dashboard = DashboardPage(logged_in_driver)
@@ -17,6 +18,7 @@ def test_leave_list_loads_and_displays_table(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_leave_type_dropdown_populated(logged_in_driver):
     """FR-LV-02: The Leave Type dropdown must be populated with available options."""
     dashboard = DashboardPage(logged_in_driver)
@@ -32,6 +34,7 @@ def test_leave_type_dropdown_populated(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_date_range_filter_results_or_no_records(logged_in_driver):
     """FR-LV-03: Applying a valid date range filter shows results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
@@ -47,6 +50,7 @@ def test_date_range_filter_results_or_no_records(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_leave_type_filter_shows_filtered_results_or_no_records(logged_in_driver):
     """FR-LV-04: Selecting a Leave Type filter and searching shows filtered results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
@@ -62,6 +66,7 @@ def test_leave_type_filter_shows_filtered_results_or_no_records(logged_in_driver
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_leave_status_filter_shows_filtered_results_or_no_records(logged_in_driver):
     """FR-LV-05: Selecting a Leave Status filter and searching shows filtered results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
@@ -77,6 +82,7 @@ def test_leave_status_filter_shows_filtered_results_or_no_records(logged_in_driv
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_search_by_employee_name_shows_records_or_no_records(logged_in_driver):
     """FR-LV-06: Searching by valid employee name shows matching leaves or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
@@ -88,6 +94,7 @@ def test_search_by_employee_name_shows_records_or_no_records(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_nonexistent_employee_name_shows_validation_or_no_records(logged_in_driver):
     """FR-LV-07: Searching by a non-existent employee name shows required-field validation or no records message."""
     dashboard = DashboardPage(logged_in_driver)
@@ -100,6 +107,7 @@ def test_nonexistent_employee_name_shows_validation_or_no_records(logged_in_driv
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_assign_leave_page_loads_with_required_fields(logged_in_driver):
     """FR-LV-08: Assign Leave page loads with Employee Name, Leave Type, From Date and To Date fields present."""
     dashboard = DashboardPage(logged_in_driver)
@@ -111,6 +119,7 @@ def test_assign_leave_page_loads_with_required_fields(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_assign_leave_without_employee_shows_required_error(logged_in_driver):
     """FR-LV-09: Submitting Assign Leave without selecting an employee shows required-field validation."""
     dashboard = DashboardPage(logged_in_driver)
@@ -123,6 +132,7 @@ def test_assign_leave_without_employee_shows_required_error(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_assign_leave_without_leave_type_shows_required_error(logged_in_driver):
     """FR-LV-10: Submitting Assign Leave without selecting leave type shows required-field validation."""
     dashboard = DashboardPage(logged_in_driver)
@@ -135,6 +145,7 @@ def test_assign_leave_without_leave_type_shows_required_error(logged_in_driver):
 
 
 @pytest.mark.leave
+@pytest.mark.regression
 def test_assign_leave_success_for_future_dates(logged_in_driver):
     """FR-LV-11: Completing Assign Leave with valid future dates must succeed and be verifiable."""
     dashboard = DashboardPage(logged_in_driver)

@@ -10,6 +10,7 @@ from pages.recruitment_page import RecruitmentPage
 
 @pytest.mark.recruitment
 @pytest.mark.regression
+@pytest.mark.smoke
 def test_candidates_page_loads_and_shows_columns(logged_in_driver):
     """FR-REC-01: Candidates page must load and display the candidate list table with required columns."""
     dashboard = DashboardPage(logged_in_driver)

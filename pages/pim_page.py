@@ -171,13 +171,26 @@ class PIMPage(BasePage):
         WebDriverWait(self.driver, self.timeout).until(search_ready)
 
     def select_first_dropdown_option(self, dropdown_label_locator: tuple) -> str:
-        self.action_click(*dropdown_label_locator)
+        try:
+            self.action_click(*dropdown_label_locator)
+        except Exception:
+            # Fallback: try clicking via JS if the label element is covered or offscreen
+            el = self.driver.find_element(*dropdown_label_locator)
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();", el)
 
         def option_list_ready(driver):
             items = driver.find_elements(*self.LOC_DROPDOWN_OPTIONS)
             return [item for item in items if item.is_displayed() and item.text.strip()]
 
-        options = WebDriverWait(self.driver, self.timeout).until(option_list_ready)
+        # Sometimes options render in an overlay container; attempt to expand waits
+        try:
+            options = WebDriverWait(self.driver, self.timeout).until(option_list_ready)
+        except Exception:
+            # Try a short JS-based wait to ensure overlay attached
+            import time
+
+            time.sleep(0.5)
+            options = option_list_ready(self.driver)
         filtered = [opt for opt in options if opt.text.strip().lower() not in ("-- select --", "select", "please select", "- select -")]
         if not filtered:
             filtered = options

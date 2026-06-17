@@ -10,6 +10,7 @@ from pages.pim_page import PIMPage
 
 @pytest.mark.pim
 @pytest.mark.regression
+@pytest.mark.smoke
 def test_employee_list_loads_and_has_records(logged_in_driver):
     """FR-PIM-01: Employee List page must load and have at least one record."""
     dashboard = DashboardPage(logged_in_driver)

@@ -21,6 +21,7 @@ def test_login_valid_credentials(driver, auth_credentials):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_login_username_with_spaces(driver):
     """FR-AUTH-01: Username with leading/trailing spaces authenticates after trim."""
     users = load_json("data/users.json")["valid_users"]
@@ -40,6 +41,7 @@ def test_login_username_with_spaces(driver):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 @pytest.mark.parametrize("user", load_json("data/users.json")["invalid_users"])
 def test_login_invalid_credentials(driver, user):
     """FR-AUTH-02/03/07: Invalid credentials and special characters show error."""
@@ -49,6 +51,7 @@ def test_login_invalid_credentials(driver, user):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_login_empty_credentials(driver):
     """FR-AUTH-04: Both fields empty shows required validation."""
     login_page = LoginPage(driver)
@@ -57,6 +60,7 @@ def test_login_empty_credentials(driver):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 @pytest.mark.parametrize("user", load_json("data/users.json")["partial_empty"])
 def test_login_partial_empty_credentials(driver, user):
     """FR-AUTH-05/06: Partial empty credentials surface validation or login error."""
@@ -79,6 +83,7 @@ def test_login_partial_empty_credentials(driver, user):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_direct_url_without_session_redirects_to_login(driver, config):
     """FR-AUTH-08: Direct internal URL without session redirects to login."""
     driver.get(f"{config['base_url']}/web/index.php/dashboard/index")
@@ -87,6 +92,7 @@ def test_direct_url_without_session_redirects_to_login(driver, config):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_back_button_after_logout_blocks_access(logged_in_driver):
     """FR-AUTH-09: Browser back after logout does not restore authenticated access."""
     dashboard = DashboardPage(logged_in_driver)
@@ -99,6 +105,7 @@ def test_back_button_after_logout_blocks_access(logged_in_driver):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_session_invalidated_after_logout(driver, auth_credentials, config):
     """FR-AUTH-10: Session invalidated after logout; internal URL redirects to login."""
     username, password = auth_credentials
@@ -114,6 +121,7 @@ def test_session_invalidated_after_logout(driver, auth_credentials, config):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_session_persists_after_dashboard_refresh(logged_in_driver):
     """FR-AUTH-10: Refreshing dashboard retains active session."""
     dashboard = DashboardPage(logged_in_driver)
@@ -122,6 +130,7 @@ def test_session_persists_after_dashboard_refresh(logged_in_driver):
 
 
 @pytest.mark.auth
+@pytest.mark.regression
 def test_session_persists_in_new_tab(logged_in_driver):
     """FR-AUTH-10: Opening dashboard in new tab keeps authenticated session."""
     original_handle = logged_in_driver.current_window_handle
