@@ -37,15 +37,15 @@ def test_buzz_photo_video_button_visible(logged_in_driver):
     assert page.is_photo_video_button_visible(), "Photo/Video share button not visible on Buzz feed"
 
 
-# @pytest.mark.buzz
-# def test_buzz_create_post_and_appears_on_top(logged_in_driver):
-#     """FR-BUZZ-04: Creating a post should show the new post at top of Most Recent posts."""
-#     dashboard = DashboardPage(logged_in_driver)
-#     dashboard.action_go_to_buzz()
+@pytest.mark.buzz
+def test_buzz_create_post_and_appears_on_top(logged_in_driver):
+    """FR-BUZZ-04: Creating a post should show the new post at top of Most Recent posts."""
+    dashboard = DashboardPage(logged_in_driver)
+    dashboard.action_go_to_buzz()
 
-#     page = BuzzPage(logged_in_driver)
-#     text = f"Automated post {__import__('uuid').uuid4().hex[:6]}"
-#     page.create_post(text)
+    page = BuzzPage(logged_in_driver)
+    text = f"Automated post {__import__('uuid').uuid4().hex[:6]}"
+    page.create_post(text)
 
-#     latest = page.get_latest_post_text()
-#     assert latest and text in latest, "Newly created post not found at top of feed"
+    latest = page.get_latest_post_text()
+    assert latest and text in latest, "Newly created post not found at top of feed"
