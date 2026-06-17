@@ -87,6 +87,16 @@ class DirectoryPage(BasePage):
             return False
 
     def search_by_employee_name(self, name: str) -> None:
+        # Ensure viewport/zoom so the search input and suggestions are visible
+        try:
+            self.driver.set_window_size(1920, 1080)
+        except Exception:
+            pass
+        try:
+            self.driver.execute_script("document.body.style.zoom='100%'")
+        except Exception:
+            pass
+
         try:
             self.action_clear_and_type(*self.LOC_SEARCH_INPUT, name)
         except Exception:
@@ -133,7 +143,25 @@ class DirectoryPage(BasePage):
             return False
 
         try:
-            WebDriverWait(self.driver, self.timeout).until(results_ready)
+            # Wait up to timeout for either generic results, or specifically
+            # for a card that contains the searched name.
+            def ready_or_name_present(driver):
+                if results_ready(driver):
+                    # quick check for the name in any visible card
+                    try:
+                        cards = self.get_employee_card_elements()
+                        for c in cards:
+                            try:
+                                if name.lower() in self.get_card_name(c).lower():
+                                    return True
+                            except Exception:
+                                continue
+                    except Exception:
+                        pass
+                    return True
+                return False
+
+            WebDriverWait(self.driver, self.timeout).until(ready_or_name_present)
         except Exception:
             pass
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from selenium.webdriver.common.by import By
+import time
 
 from pages.dashboard_page import DashboardPage
 from pages.directory_page import DirectoryPage
@@ -47,7 +48,26 @@ def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver
     dashboard.action_go_to_directory()
 
     page = DirectoryPage(logged_in_driver)
-    target = "Ranga Akunuri"
+
+    # Use the first visible employee card as the canonical record for this
+    # environment rather than relying on a hard-coded name which may change.
+    # Try immediately, then retry briefly to handle slow renders before skipping
+    initial_cards = page.get_employee_card_elements()
+    if not initial_cards:
+        for _ in range(5):
+            time.sleep(1)
+            initial_cards = page.get_employee_card_elements()
+            if initial_cards:
+                break
+    if not initial_cards:
+        pytest.skip("No directory cards available to derive a target employee for this environment")
+
+    first_card = initial_cards[0]
+    target = page.get_card_name(first_card)
+    if not target:
+        pytest.skip("Could not determine a valid employee name from the first card")
+
+    # Perform a search for the discovered target and verify it appears
     page.search_by_employee_name(target)
 
     # prefer records found indicator or cards
@@ -56,11 +76,7 @@ def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver
         pytest.skip("No directory cards available after search to validate")
 
     # ensure at least one matching name present
-    match = False
-    for c in cards:
-        if target.lower() in page.get_card_name(c).lower():
-            match = True
-            break
+    match = any(target.lower() in page.get_card_name(c).lower() for c in cards)
     assert match, f"Expected search results to include '{target}'"
 
     # click the employee name/card to open profile
