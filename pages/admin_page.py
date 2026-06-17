@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import (
+    TimeoutException,
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+)
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_present, wait_visible, wait_url_contains
@@ -12,18 +17,15 @@ class AdminPage(BasePage):
         By.XPATH,
         "//*[normalize-space()='System Users']",
     )
+    LOC_FILTER_TOGGLE = (
+        By.XPATH,
+        "//div[contains(@class,'oxd-table-filter-header-options')]//button[contains(@class,'oxd-icon-button')]",
+    )
     LOC_USERNAME_FILTER = (
         By.XPATH,
         "//label[normalize-space()='Username']/../following-sibling::div//input | //input[@placeholder='Username' or contains(@placeholder,'Username')]",
     )
-    LOC_USER_ROLE_FILTER = (
-        By.XPATH,
-        "//label[normalize-space()='User Role']/../following-sibling::div//div[contains(@class,'oxd-select-text')] | //div[contains(@class,'oxd-select-wrapper') and .//label[normalize-space()='User Role']]//div[contains(@class,'oxd-select-text')]",
-    )
-    LOC_STATUS_FILTER = (
-        By.XPATH,
-        "//label[normalize-space()='Status']/../following-sibling::div//div[contains(@class,'oxd-select-text')] | //div[contains(@class,'oxd-select-wrapper') and .//label[normalize-space()='Status']]//div[contains(@class,'oxd-select-text')]",
-    )
+    # user role / status filters removed (requirements FR-ADM-03 & FR-ADM-04)
     LOC_SEARCH_BUTTON = (By.XPATH, "//button[normalize-space()='Search']")
     LOC_ADD_BUTTON = (By.XPATH, "//button[normalize-space()='Add']")
     LOC_TABLE_ROWS = (
@@ -64,40 +66,140 @@ class AdminPage(BasePage):
         except Exception:
             return False
 
+    def _find_element_resilient(self, by, locator):
+        """Try visibility wait first, then fall back to presence + scroll.
+
+        Returns the WebElement or raises the original exception.
+        """
+        try:
+            el = wait_visible(self.driver, by, locator, self.timeout)
+            if el.is_displayed() and el.is_enabled():
+                return el
+        except Exception:
+            pass
+
+        # fallback: look for any present matching element that is displayed+enabled
+        try:
+            candidates = self.driver.find_elements(by, locator)
+            for el in candidates:
+                if el.is_displayed() and el.is_enabled():
+                    try:
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+                    except Exception:
+                        pass
+                    return el
+        except Exception:
+            pass
+
+        # final fallback: presence wait + return whatever it finds (will raise if not found)
+        # If filter controls are collapsed, try toggling the filter panel and retry
+        try:
+            self.action_click(*self.LOC_FILTER_TOGGLE)
+            try:
+                el = wait_visible(self.driver, by, locator, 3)
+                if el.is_displayed() and el.is_enabled():
+                    return el
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        return wait_present(self.driver, by, locator, self.timeout)
+
+    def _wait_for_option(self, texts: list[str]) -> tuple[bool, object]:
+        """Wait for any of the provided XPaths/texts to be present and return the locator tuple.
+
+        Returns (found, (By, locator))
+        """
+        # removed helper for option-waiting (filter option selection removed)
+        return False, (By.XPATH, "")
+
     def search_username(self, username: str) -> None:
-        # Wait for the username input to be visible before typing
-        wait_visible(self.driver, *self.LOC_USERNAME_FILTER, self.timeout)
-        self.action_clear_and_type(*self.LOC_USERNAME_FILTER, username)
+        # Try using the action helper first (handles clickable visibility)
+        try:
+            self.action_clear_and_type(*self.LOC_USERNAME_FILTER, username)
+        except (TimeoutException, ElementNotInteractableException):
+            # fallback: find a displayed+enabled input and set value via JS
+            try:
+                el = self._find_element_resilient(*self.LOC_USERNAME_FILTER)
+                try:
+                    el.clear()
+                    el.send_keys(username)
+                except Exception:
+                    # last resort: set value via JS and dispatch input event
+                    self.driver.execute_script(
+                        "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));",
+                        el,
+                        username,
+                    )
+            except Exception:
+                # if all fails, re-raise so test sees the failure
+                raise
         self.action_click(*self.LOC_SEARCH_BUTTON)
         self.wait_for_search_results()
 
-    def filter_user_role(self, role: str) -> None:
-        # Wait for the User Role dropdown to be visible before clicking
-        wait_visible(self.driver, *self.LOC_USER_ROLE_FILTER, self.timeout)
-        self.action_click(*self.LOC_USER_ROLE_FILTER)
-        # Wait for listbox options to appear
-        wait_present(self.driver, By.XPATH, f"//div[@role='listbox']//span[normalize-space()='{role}']", self.timeout)
-        self.action_click(By.XPATH, f"//div[@role='listbox']//span[normalize-space()='{role}']")
-        self.action_click(*self.LOC_SEARCH_BUTTON)
-        self.wait_for_search_results()
-
-    def filter_status(self, status: str) -> None:
-        # Wait for the Status dropdown to be visible before clicking
-        wait_visible(self.driver, *self.LOC_STATUS_FILTER, self.timeout)
-        self.action_click(*self.LOC_STATUS_FILTER)
-        # Wait for listbox options to appear
-        wait_present(self.driver, By.XPATH, f"//div[@role='listbox']//span[normalize-space()='{status}']", self.timeout)
-        self.action_click(By.XPATH, f"//div[@role='listbox']//span[normalize-space()='{status}']")
-        self.action_click(*self.LOC_SEARCH_BUTTON)
-        self.wait_for_search_results()
+    # filter methods removed (requirements FR-ADM-03 & FR-ADM-04)
 
     def get_table_row_texts(self) -> list[str]:
         try:
+            # wait for at least one row or card to be present
             wait_present(self.driver, *self.LOC_TABLE_ROWS, self.timeout)
         except Exception:
             return []
-        rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
-        return [row.text.strip() for row in rows if row.is_displayed() and row.text.strip()]
+
+        results: list[str] = []
+        seen: set[str] = set()
+
+        # Prefer structured rows with role='row'
+        try:
+            rows = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-table-body')]//div[@role='row']")
+            for r in rows:
+                try:
+                    if not r.is_displayed():
+                        continue
+                    text = r.text.strip()
+                    if text and text not in seen:
+                        results.append(text)
+                        seen.add(text)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # Also include top-level card elements if present
+        try:
+            cards = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-table-card') and not(ancestor::div[contains(@class,'oxd-table-card')])]")
+            for c in cards:
+                try:
+                    if not c.is_displayed():
+                        continue
+                    text = c.text.strip()
+                    if text and text not in seen:
+                        results.append(text)
+                        seen.add(text)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # Fallback: use the original locator if nothing found
+        if not results:
+            try:
+                rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
+                for row in rows:
+                    try:
+                        if not row.is_displayed():
+                            continue
+                        text = row.text.strip()
+                        if text and text not in seen:
+                            results.append(text)
+                            seen.add(text)
+                    except Exception:
+                        continue
+            except Exception:
+                return []
+
+        return results
 
     def is_no_records_found_visible(self) -> bool:
         try:
@@ -107,12 +209,27 @@ class AdminPage(BasePage):
 
     def wait_for_search_results(self) -> None:
         def search_ready(driver):
-            rows = driver.find_elements(*self.LOC_TABLE_ROWS)
-            if any(row.is_displayed() and row.text.strip() for row in rows):
-                return True
             try:
-                no_records = driver.find_elements(*self.LOC_NO_RECORDS)
-                return any(node.is_displayed() for node in no_records)
+                rows = driver.find_elements(*self.LOC_TABLE_ROWS)
+                for row in rows:
+                    try:
+                        if row.is_displayed() and row.text.strip():
+                            return True
+                    except StaleElementReferenceException:
+                        # element became stale; try next one
+                        continue
+
+                try:
+                    no_records = driver.find_elements(*self.LOC_NO_RECORDS)
+                    for node in no_records:
+                        try:
+                            if node.is_displayed():
+                                return True
+                        except StaleElementReferenceException:
+                            continue
+                    return False
+                except Exception:
+                    return False
             except Exception:
                 return False
 

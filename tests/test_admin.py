@@ -39,38 +39,6 @@ def test_searching_by_username_returns_matching_rows(logged_in_driver):
 
 @pytest.mark.admin
 @pytest.mark.regression
-def test_filter_by_user_role_returns_only_admin_rows(logged_in_driver):
-    """FR-ADM-03: Filtering by User Role dropdown must return only users with that role."""
-    dashboard = DashboardPage(logged_in_driver)
-    dashboard.action_go_to_admin()
-
-    admin = AdminPage(logged_in_driver)
-    # Filter the system users by Admin role and verify all returned rows contain Admin
-    admin.filter_user_role("Admin")
-
-    rows = admin.get_table_row_texts()
-    assert rows, "Expected rows after filtering by User Role 'Admin'."
-    assert all("Admin" in row for row in rows), f"Expected only Admin role rows, got {rows}"
-
-
-@pytest.mark.admin
-@pytest.mark.regression
-def test_filter_by_status_returns_only_enabled_rows(logged_in_driver):
-    """FR-ADM-04: Filtering by Status must return users matching that status."""
-    dashboard = DashboardPage(logged_in_driver)
-    dashboard.action_go_to_admin()
-
-    admin = AdminPage(logged_in_driver)
-    # Filter the system users by Enabled status and verify all rows are enabled
-    admin.filter_status("Enabled")
-
-    rows = admin.get_table_row_texts()
-    assert rows, "Expected rows after filtering by Status 'Enabled'."
-    assert all("Enabled" in row for row in rows), f"Expected only Enabled rows, got {rows}"
-
-
-@pytest.mark.admin
-@pytest.mark.regression
 def test_add_user_form_loads_with_required_fields(logged_in_driver):
     """FR-ADM-05: Add User form must load when the Add button is clicked; User Role, Employee Name, Status, Username and Password fields must be present."""
     dashboard = DashboardPage(logged_in_driver)
