@@ -156,3 +156,19 @@ class BasePage:
     def action_js_click(self, by: By, locator: str) -> None:
         element = wait_present(self.driver, by, locator, self.timeout)
         self.driver.execute_script("arguments[0].click();", element)
+
+    def ensure_section_expanded(self, section_label: str) -> None:
+        """If a collapsible section with the given label exists, ensure it's expanded.
+
+        Looks for a nearby toggle button and clicks it if the section appears collapsed.
+        """
+        try:
+            toggle = self.driver.find_element(By.XPATH, f"//div[contains(. ,'{section_label}')]//button")
+            if toggle and toggle.is_displayed():
+                try:
+                    toggle.click()
+                except Exception:
+                    self.driver.execute_script("arguments[0].click();", toggle)
+        except Exception:
+            # No section toggle found; ignore
+            pass

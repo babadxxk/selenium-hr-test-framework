@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_present, wait_visible, wait_url_contains
 
 
 class PIMPage(BasePage):
-    LOC_PAGE_HEADER = (By.CSS_SELECTOR, ".oxd-topbar-header-breadcrumb h6")
-
     LOC_SEARCH_EMPLOYEE_ID = (
         By.XPATH,
         "//label[normalize-space()='Employee Id']/../following-sibling::div//input",
@@ -18,21 +18,12 @@ class PIMPage(BasePage):
         By.XPATH,
         "//label[normalize-space()='Employee Name']/../following-sibling::div//input",
     )
-    LOC_SEARCH_EMPLOYMENT_STATUS = (
-        By.XPATH,
-        "//label[normalize-space()='Employment Status']/../following-sibling::div//div[contains(@class,'oxd-select-text')]",
-    )
-    LOC_SEARCH_JOB_TITLE = (
-        By.XPATH,
-        "//label[normalize-space()='Job Title']/../following-sibling::div//div[contains(@class,'oxd-select-text')]",
-    )
     LOC_SEARCH_BUTTON = (By.XPATH, "//button[normalize-space()='Search']")
 
     LOC_ADD_BUTTON = (By.XPATH, "//button[normalize-space()='Add']")
 
     LOC_TABLE_ROWS = (By.XPATH, "//div[contains(@class,'oxd-table-body')]//div[@role='row']")
     LOC_NO_RECORDS = (By.XPATH, "//*[normalize-space()='No Records Found']")
-    LOC_DROPDOWN_OPTIONS = (By.XPATH, "//div[@role='listbox']//span[normalize-space()]")
     LOC_FIRST_NAME = (By.XPATH, "//label[normalize-space()='First Name']/../following-sibling::div//input")
     LOC_FIRST_NAME_ALT = (
         By.XPATH,
@@ -63,7 +54,7 @@ class PIMPage(BasePage):
     LOC_CONTACT_DETAILS_TAB = (By.XPATH, "//a[normalize-space()='Contact Details']")
 
     def get_header_text(self) -> str:
-        return wait_visible(self.driver, *self.LOC_PAGE_HEADER, self.timeout).text.strip()
+        return self.get_page_header()
 
     def is_employee_list_loaded(self) -> bool:
         try:
@@ -132,6 +123,18 @@ class PIMPage(BasePage):
             except Exception:
                 el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
+            try:
+                el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
+                val = (el.get_attribute('value') or '').strip()
+                if val != emp_id:
+                    try:
+                        el.clear()
+                        el.send_keys(emp_id)
+                        el.send_keys(Keys.TAB)
+                    except Exception:
+                        self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input')); arguments[0].dispatchEvent(new Event('change'));", el, emp_id)
+            except Exception:
+                pass
         else:
             elems = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-form-row')]//input")
             target = None
@@ -155,7 +158,17 @@ class PIMPage(BasePage):
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
 
         self.action_click(*self.LOC_SEARCH_BUTTON)
-        self.wait_for_search_results()
+
+        try:
+            WebDriverWait(self.driver, max(5, self.timeout)).until(
+                lambda d: any(emp_id in (r.text or '') for r in d.find_elements(*self.LOC_TABLE_ROWS))
+                or any(n.is_displayed() for n in d.find_elements(*self.LOC_NO_RECORDS))
+            )
+        except TimeoutException:
+            try:
+                self.wait_for_search_results()
+            except Exception:
+                pass
 
     def wait_for_search_results(self) -> None:
         def search_ready(driver):
@@ -169,44 +182,6 @@ class PIMPage(BasePage):
                 return False
 
         WebDriverWait(self.driver, self.timeout).until(search_ready)
-
-    def select_first_dropdown_option(self, dropdown_label_locator: tuple) -> str:
-        try:
-            self.action_click(*dropdown_label_locator)
-        except Exception:
-            # Fallback: try clicking via JS if the label element is covered or offscreen
-            el = self.driver.find_element(*dropdown_label_locator)
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();", el)
-
-        def option_list_ready(driver):
-            items = driver.find_elements(*self.LOC_DROPDOWN_OPTIONS)
-            return [item for item in items if item.is_displayed() and item.text.strip()]
-
-        # Sometimes options render in an overlay container; attempt to expand waits
-        try:
-            options = WebDriverWait(self.driver, self.timeout).until(option_list_ready)
-        except Exception:
-            # Try a short JS-based wait to ensure overlay attached
-            import time
-
-            time.sleep(0.5)
-            options = option_list_ready(self.driver)
-        filtered = [opt for opt in options if opt.text.strip().lower() not in ("-- select --", "select", "please select", "- select -")]
-        if not filtered:
-            filtered = options
-        if not filtered:
-            raise ValueError("No dropdown options available")
-
-        first_option = filtered[0]
-        option_text = first_option.text.strip()
-        try:
-            first_option.click()
-        except Exception:
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();", first_option)
-
-        self.action_click(*self.LOC_SEARCH_BUTTON)
-        self.wait_for_search_results()
-        return option_text
 
     def get_field_locator(self, primary: tuple, alternate: tuple) -> tuple:
         return primary if self.is_visible(*primary) else alternate
@@ -224,9 +199,6 @@ class PIMPage(BasePage):
         return self.get_field_locator(self.LOC_EMPLOYEE_ID_FIELD, self.LOC_EMPLOYEE_ID_FIELD_ALT)
 
     def get_table_row_texts(self) -> list[str]:
-        # Wait until either table rows are present (and contain text) or the
-        # 'No Records Found' message is visible. This prevents timeouts when
-        # the table is intentionally empty.
         def rows_or_no_records(driver):
             try:
                 rows = driver.find_elements(*self.LOC_TABLE_ROWS)
@@ -374,16 +346,6 @@ class PIMPage(BasePage):
         try:
             WebDriverWait(self.driver, max(30, self.timeout)).until(saved_or_details_ready)
         except Exception:
-            # Save diagnostics
-            try:
-                reports_dir = os.path.join(os.getcwd(), "reports")
-                os.makedirs(reports_dir, exist_ok=True)
-                fname = os.path.join(reports_dir, f"add_employee_diagnostic_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}.html")
-                with open(fname, "w", encoding="utf-8") as fh:
-                    fh.write(self.driver.page_source)
-                print(f"ERROR: add_employee did not reach details view; saved page source to {fname}")
-            except Exception:
-                pass
             time.sleep(2)
 
     def get_current_employee_id(self) -> str:

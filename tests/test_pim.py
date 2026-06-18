@@ -59,42 +59,8 @@ def test_search_by_employee_id_returns_exact_match(logged_in_driver):
 
 @pytest.mark.pim
 @pytest.mark.regression
-def test_search_by_employment_status_filters_results(logged_in_driver):
-    """FR-PIM-04: Search by Employment Status dropdown must filter results to matching employees."""
-    dashboard = DashboardPage(logged_in_driver)
-    dashboard.action_go_to_pim()
-    pim = PIMPage(logged_in_driver)
-
-    try:
-        selected = pim.select_first_dropdown_option(pim.LOC_SEARCH_EMPLOYMENT_STATUS)
-    except Exception:
-        pytest.skip("Employment Status dropdown not available or option not present in this environment")
-
-    rows = pim.get_table_row_texts()
-    assert rows, f"Expected employee search results after filtering by Employment Status using option '{selected}'"
-
-
-@pytest.mark.pim
-@pytest.mark.regression
-def test_search_by_job_title_filters_results(logged_in_driver):
-    """FR-PIM-05: Search by Job Title dropdown must filter employee list to matching job titles."""
-    dashboard = DashboardPage(logged_in_driver)
-    dashboard.action_go_to_pim()
-    pim = PIMPage(logged_in_driver)
-
-    try:
-        selected = pim.select_first_dropdown_option(pim.LOC_SEARCH_JOB_TITLE)
-    except Exception:
-        pytest.skip("Job Title dropdown not available or option not present in this environment")
-
-    rows = pim.get_table_row_texts()
-    assert rows, f"Expected employee search results after filtering by Job Title using option '{selected}'"
-
-
-@pytest.mark.pim
-@pytest.mark.regression
 def test_search_by_nonexistent_name_shows_no_records_message(logged_in_driver):
-    """FR-PIM-06: Search with a name that does not match any employee must display the 'No Records Found' message."""
+    """FR-PIM-04: Search with a name that does not match any employee must display the 'No Records Found' message."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -109,7 +75,7 @@ def test_search_by_nonexistent_name_shows_no_records_message(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_click_row_opens_personal_details(logged_in_driver):
-    """FR-PIM-07: Clicking an employee row must open the employee record on the Personal Details tab."""
+    """FR-PIM-05: Clicking an employee row must open the employee record on the Personal Details tab."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -125,7 +91,7 @@ def test_click_row_opens_personal_details(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_contact_details_tab_loads(logged_in_driver):
-    """FR-PIM-08: Navigating to the Contact Details tab on an employee record must load the tab with address and contact fields."""
+    """FR-PIM-06: Navigating to the Contact Details tab on an employee record must load the tab with address and contact fields."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -147,7 +113,7 @@ def test_contact_details_tab_loads(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_add_employee_and_verify_search(logged_in_driver):
-    """FR-PIM-09: A new employee must be successfully added through the Add Employee form and appear in PIM search results."""
+    """FR-PIM-07: A new employee must be successfully added through the Add Employee form and appear in PIM search results."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)

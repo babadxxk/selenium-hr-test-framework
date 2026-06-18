@@ -7,6 +7,5 @@ timeouts:
 credentials:
   username_env: "ORANGEHRM_USERNAME"
   password_env: "ORANGEHRM_PASSWORD"
-artifcats:
+artifacts:
   screenshots_dir: "reports/screenshots"
-  

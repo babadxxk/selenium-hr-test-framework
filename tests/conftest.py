@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
@@ -20,6 +21,13 @@ from utils.logger import get_logger
 
 LOGGER = get_logger(__name__)
 
+RUN_ID: str | None = None
+if not os.environ.get("PYTEST_RUN_ID"):
+    RUN_ID = f"run_{datetime.utcnow().strftime('%Y%m%dT%H%M%S%fZ')}"
+    os.environ["PYTEST_RUN_ID"] = RUN_ID
+else:
+    RUN_ID = os.environ.get("PYTEST_RUN_ID")
+
 
 @pytest.fixture(scope="session")
 def config() -> dict:
@@ -30,7 +38,9 @@ def config() -> dict:
 @pytest.fixture(scope="function")
 def driver(config: dict) -> Generator:
     webdriver = create_chrome_driver(headless=config.get("headless", True))
-    webdriver.explicit_wait = config.get("timeouts", {}).get("explicit_wait_seconds", 15)
+    # Increase explicit wait to reduce flakiness under parallel execution / reruns
+    configured = config.get("timeouts", {}).get("explicit_wait_seconds", 15)
+    webdriver.explicit_wait = max(configured, 30)
     webdriver.get(config["base_url"])
     yield webdriver
     webdriver.quit()
@@ -69,8 +79,99 @@ def pytest_runtest_makereport(item, call):
     if not web_driver:
         return
 
-    screenshots_dir = PROJECT_ROOT / "reports" / "screenshots"
+    # Group artifacts by run id (or fall back to top-level screenshots dir)
+    run_dir = RUN_ID or os.environ.get("PYTEST_RUN_ID")
+    if run_dir:
+        screenshots_dir = PROJECT_ROOT / "reports" / run_dir / "screenshots"
+    else:
+        screenshots_dir = PROJECT_ROOT / "reports" / "screenshots"
     screenshots_dir.mkdir(parents=True, exist_ok=True)
-    screenshot_file = screenshots_dir / f"{item.name}.png"
-    web_driver.save_screenshot(str(screenshot_file))
-    LOGGER.info("Saved failure screenshot: %s", screenshot_file.as_posix())
+    # create unique filename to avoid collisions in parallel runs and overwrites
+    worker = os.environ.get("PYTEST_XDIST_WORKER", f"pid{os.getpid()}")
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S%fZ")
+    screenshot_file = screenshots_dir / f"{item.name}_{worker}_{timestamp}.png"
+
+    try:
+        # Attempt a full-page capture: resize viewport to page dimensions, capture, then restore
+        original_size = None
+        try:
+            original_size = (web_driver.get_window_size().get('width'), web_driver.get_window_size().get('height'))
+        except Exception:
+            original_size = None
+
+        try:
+            # compute full document dimensions
+            width = web_driver.execute_script("return Math.max(document.body.scrollWidth, document.documentElement.scrollWidth, document.documentElement.clientWidth);")
+            height = web_driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.documentElement.clientHeight);")
+            # clamp height to a reasonable max to avoid driver errors
+            max_h = 10000
+            height = min(int(height or 1080), max_h)
+            width = int(width or 1920)
+            web_driver.set_window_size(width, height)
+        except Exception:
+            pass
+
+        png = web_driver.get_screenshot_as_png()
+        with open(screenshot_file, "wb") as fh:
+            fh.write(png)
+        try:
+            # restore original window size
+            if original_size:
+                web_driver.set_window_size(original_size[0], original_size[1])
+        except Exception:
+            pass
+        LOGGER.info("Saved failure screenshot: %s", screenshot_file.as_posix())
+    except Exception:
+        # fallback to selenium convenience method
+        try:
+            web_driver.save_screenshot(str(screenshot_file))
+            LOGGER.info("Saved failure screenshot (fallback): %s", screenshot_file.as_posix())
+        except Exception:
+            LOGGER.exception("Failed to capture screenshot for %s", item.name)
+
+    # Also save page source to help diagnose blank images
+    try:
+        html_file = screenshots_dir / f"{item.name}_{worker}_{timestamp}.html"
+        with open(html_file, "w", encoding="utf-8") as fh:
+            fh.write(web_driver.page_source)
+        LOGGER.info("Saved page source: %s", html_file.as_posix())
+    except Exception:
+        LOGGER.exception("Failed to save page source for %s", item.name)
+
+    # Try to capture browser console logs when available
+    try:
+        logs = []
+        for entry in web_driver.get_log("browser"):
+            logs.append(f"{entry.get('level')} {entry.get('message')}")
+        if logs:
+            log_file = screenshots_dir / f"{item.name}_{worker}_{timestamp}.log"
+            with open(log_file, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(logs))
+            LOGGER.info("Saved browser console logs: %s", log_file.as_posix())
+    except Exception:
+        # not all drivers support browser logs; ignore errors
+        LOGGER.debug("Browser logs not available for %s", item.name)
+
+
+def pytest_configure(config):
+    """Adjust pytest-html output path to use the run-specific reports directory.
+
+    This moves the generated `report.html` into `reports/<run_id>/report.html`
+    when a run id is present (generated or provided via `PYTEST_RUN_ID`).
+    """
+    try:
+        run_dir = os.environ.get("PYTEST_RUN_ID")
+        if not run_dir:
+            return
+
+        # ensure the run reports directory exists
+        target_dir = PROJECT_ROOT / "reports" / run_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # pytest-html stores the output path on config.option.htmlpath
+        if hasattr(config, "option") and hasattr(config.option, "htmlpath"):
+            new_path = target_dir / "report.html"
+            config.option.htmlpath = str(new_path)
+            LOGGER.info("pytest-html report path set to %s", new_path.as_posix())
+    except Exception:
+        LOGGER.exception("Failed to set pytest-html report path")

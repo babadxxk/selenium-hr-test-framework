@@ -43,8 +43,12 @@ def test_login_username_with_spaces(driver):
 @pytest.mark.auth
 @pytest.mark.regression
 @pytest.mark.parametrize("user", load_json("data/users.json")["invalid_users"])
-def test_login_invalid_credentials(driver, user):
+def test_login_invalid_credentials(driver, user, config):
     """FR-AUTH-02/03/07: Invalid credentials and special characters show error."""
+    # Ensure a clean start on the login page to avoid cross-test session leakage
+    driver.delete_all_cookies()
+    driver.get(config["base_url"])
+
     login_page = LoginPage(driver)
     login_page.action_login(user["username"], user["password"])
     assert "Invalid credentials" in login_page.get_error_message()

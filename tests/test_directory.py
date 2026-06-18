@@ -30,8 +30,13 @@ def test_directory_cards_display_name_and_avatar(logged_in_driver):
     dashboard.action_go_to_directory()
 
     page = DirectoryPage(logged_in_driver)
-    # prefer the explicit directory card class when available
     dir_cards = logged_in_driver.find_elements(By.CSS_SELECTOR, ".orangehrm-directory-card")
+    if not dir_cards:
+        for _ in range(5):
+            time.sleep(1)
+            dir_cards = logged_in_driver.find_elements(By.CSS_SELECTOR, ".orangehrm-directory-card")
+            if dir_cards:
+                break
     if not dir_cards:
         pytest.skip("Class 'orangehrm-directory-card' not present; skipping detailed card checks")
 
@@ -52,9 +57,6 @@ def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver
 
     page = DirectoryPage(logged_in_driver)
 
-    # Use the first visible employee card as the canonical record for this
-    # environment rather than relying on a hard-coded name which may change.
-    # Try immediately, then retry briefly to handle slow renders before skipping
     initial_cards = page.get_employee_card_elements()
     if not initial_cards:
         for _ in range(5):
@@ -65,18 +67,48 @@ def test_search_by_employee_name_returns_card_and_opens_profile(logged_in_driver
     if not initial_cards:
         pytest.skip("No directory cards available to derive a target employee for this environment")
 
-    first_card = initial_cards[0]
-    target = page.get_card_name(first_card)
+    # Find first visible card that contains a non-empty name to use as the target.
+    target = None
+    for card in initial_cards:
+        name = page.get_card_name(card)
+        if name:
+            target = name
+            break
     if not target:
-        pytest.skip("Could not determine a valid employee name from the first card")
+        # try a short retry loop scanning for any card with a name
+        for _ in range(3):
+            time.sleep(1)
+            initial_cards = page.get_employee_card_elements()
+            for card in initial_cards:
+                name = page.get_card_name(card)
+                if name:
+                    target = name
+                    break
+            if target:
+                break
+    if not target:
+        pytest.skip("Could not determine a valid employee name from visible cards")
 
     # Perform a search for the discovered target and verify it appears
     page.search_by_employee_name(target)
 
-    # prefer records found indicator or cards
+    # Wait/poll for search results to appear (cards or explicit "No Records Found")
     cards = page.get_employee_card_elements()
     if not cards:
-        pytest.skip("No directory cards available after search to validate")
+        for _ in range(10):
+            time.sleep(1)
+            cards = page.get_employee_card_elements()
+            if cards:
+                break
+
+    if not cards:
+        src = logged_in_driver.page_source.lower()
+        if "module forbidden" in src or "403" in src:
+            pytest.skip("No directory cards after search — site shows 403/Module Forbidden")
+        if "no records found" in src or "no records available" in src:
+            pytest.skip("No directory cards after search — 'No Records Found' shown")
+        # otherwise fail so rerun plugin can retry transient failures
+        pytest.fail("No directory cards available after search to validate")
 
     # ensure at least one matching name present
     match = any(target.lower() in page.get_card_name(c).lower() for c in cards)
