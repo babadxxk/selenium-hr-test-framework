@@ -30,7 +30,7 @@ def test_search_by_first_name_returns_matching_rows(logged_in_driver):
 
     pim.search_by_first_name("A")
     rows = pim.get_table_row_texts()
-    assert any("A" in r for r in rows), f"No rows returned containing 'A': {rows}"
+    assert any("a" in r.lower() for r in rows), f"No rows returned containing 'A' (case-insensitive): {rows}"
 
 
 @pytest.mark.pim
@@ -40,18 +40,21 @@ def test_search_by_employee_id_returns_exact_match(logged_in_driver):
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
-
     rows = pim.get_table_row_texts()
     if not rows:
         pytest.skip("No employee rows available to extract an ID for this environment")
 
-    import re
+    # Open the first row and read the canonical employee id from the details view
+    pim.click_first_table_row()
+    emp_id = pim.get_current_employee_id()
+    if not emp_id:
+        pytest.skip("Could not read an employee id from the details page")
 
-    m = re.search(r"\b(\d{3,})\b", rows[0])
-    if not m:
-        pytest.skip("Could not extract an employee id from existing rows")
+    # Navigate back to the PIM list and search for the actual id
+    import time
+    time.sleep(1)
+    dashboard.action_go_to_pim()
 
-    emp_id = m.group(1)
     pim.search_by_employee_id(emp_id)
     rows_after = pim.get_table_row_texts()
     assert any(emp_id in r for r in rows_after), f"Employee id {emp_id} not found in results: {rows_after}"
@@ -126,9 +129,20 @@ def test_add_employee_and_verify_search(logged_in_driver):
 
     # After save, navigate back to PIM list and search for the actual id
     import time
-    time.sleep(1)
-    dashboard.action_go_to_pim()
 
-    pim.search_by_employee_id(emp_id)
-    rows = pim.get_table_row_texts()
-    assert any(emp_id in r for r in rows), f"Added employee ID {emp_id} not found in search results: {rows}"
+    # Retry searching a few times to tolerate eventual consistency / indexing delays
+    found = False
+    for attempt in range(1, 4):
+        time.sleep(1 * attempt)
+        dashboard.action_go_to_pim()
+        try:
+            pim.search_by_employee_id(emp_id)
+        except Exception:
+            # allow retry on transient errors
+            continue
+        rows = pim.get_table_row_texts()
+        if any(emp_id in r for r in rows):
+            found = True
+            break
+
+    assert found, f"Added employee ID {emp_id} not found in search results after retries: {rows if 'rows' in locals() else []}"

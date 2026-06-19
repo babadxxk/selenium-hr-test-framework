@@ -166,10 +166,30 @@ class PIMPage(BasePage):
         self.action_click(*self.LOC_SEARCH_BUTTON)
 
         try:
-            WebDriverWait(self.driver, max(5, self.timeout)).until(
-                lambda d: any(emp_id in (r.text or '') for r in d.find_elements(*self.LOC_TABLE_ROWS))
-                or any(n.is_displayed() for n in d.find_elements(*self.LOC_NO_RECORDS))
-            )
+            def search_pred(d):
+                try:
+                    rows = d.find_elements(*self.LOC_TABLE_ROWS)
+                    for r in rows:
+                        try:
+                            txt = (r.text or '') or (r.get_attribute('textContent') or '')
+                        except Exception:
+                            continue
+                        if emp_id in txt:
+                            return True
+                except Exception:
+                    pass
+                try:
+                    for n in d.find_elements(*self.LOC_NO_RECORDS):
+                        try:
+                            if n.is_displayed():
+                                return True
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+                return False
+
+            WebDriverWait(self.driver, max(5, self.timeout)).until(search_pred)
         except TimeoutException:
             try:
                 self.wait_for_search_results()
@@ -216,10 +236,30 @@ class PIMPage(BasePage):
 
                 # wait a bit longer on retry
                 try:
-                    WebDriverWait(self.driver, max(10, self.timeout)).until(
-                        lambda d: any(emp_id in (r.text or '') for r in d.find_elements(*self.LOC_TABLE_ROWS))
-                        or any(n.is_displayed() for n in d.find_elements(*self.LOC_NO_RECORDS))
-                    )
+                    def search_pred_retry(d):
+                        try:
+                            rows = d.find_elements(*self.LOC_TABLE_ROWS)
+                            for r in rows:
+                                try:
+                                    txt = (r.text or '') or (r.get_attribute('textContent') or '')
+                                except Exception:
+                                    continue
+                                if emp_id in txt:
+                                    return True
+                        except Exception:
+                            pass
+                        try:
+                            for n in d.find_elements(*self.LOC_NO_RECORDS):
+                                try:
+                                    if n.is_displayed():
+                                        return True
+                                except Exception:
+                                    continue
+                        except Exception:
+                            pass
+                        return False
+
+                    WebDriverWait(self.driver, max(10, self.timeout)).until(search_pred_retry)
                 except Exception:
                     try:
                         self.wait_for_search_results()
@@ -230,9 +270,17 @@ class PIMPage(BasePage):
 
     def wait_for_search_results(self) -> None:
         def search_ready(driver):
-            rows = driver.find_elements(*self.LOC_TABLE_ROWS)
-            if any(row.text.strip() for row in rows):
-                return True
+            try:
+                rows = driver.find_elements(*self.LOC_TABLE_ROWS)
+                for row in rows:
+                    try:
+                        txt = (row.text or '').strip() or (row.get_attribute('textContent') or '').strip()
+                        if txt:
+                            return True
+                    except Exception:
+                        continue
+            except Exception:
+                pass
             try:
                 records = driver.find_elements(*self.LOC_NO_RECORDS)
                 return any(node.is_displayed() for node in records)

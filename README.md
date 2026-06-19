@@ -1,4 +1,4 @@
-# Selenium HR Test Framework
+# OrangeHRM UI Automation Framework
 
 ## Overview
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_present, wait_visible, wait_url_contains
@@ -158,6 +159,12 @@ class LeavePage(BasePage):
     def search_by_employee_name(self, name: str) -> None:
         if self.is_visible(*self.LOC_EMPLOYEE_NAME):
             self.action_clear_and_type(*self.LOC_EMPLOYEE_NAME, name)
+            try:
+                # attempt to blur/commit the typed name to trigger validation/autocomplete
+                el = self.driver.find_element(*self.LOC_EMPLOYEE_NAME)
+                el.send_keys(Keys.TAB)
+            except Exception:
+                pass
         else:
             el = self.driver.find_element(*self.LOC_EMPLOYEE_NAME)
             self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, name)

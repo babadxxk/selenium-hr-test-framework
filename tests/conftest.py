@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from selenium.common.exceptions import WebDriverException
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +49,23 @@ def driver(config: dict) -> Generator:
     # Increase explicit wait to reduce flakiness under parallel execution / reruns
     configured = config.get("timeouts", {}).get("explicit_wait_seconds", 15)
     webdriver.explicit_wait = max(configured, 30)
-    webdriver.get(config["base_url"])
+    # Retry navigation a few times to tolerate transient network/driver hiccups
+    import time
+
+    max_nav_attempts = 3
+    nav_ok = False
+    for attempt in range(1, max_nav_attempts + 1):
+        try:
+            webdriver.get(config["base_url"])
+            nav_ok = True
+            break
+        except WebDriverException:
+            if attempt == max_nav_attempts:
+                raise
+            time.sleep(1 * attempt)
+    if not nav_ok:
+        # allow fixture teardown to run by raising
+        raise RuntimeError("Failed to navigate to base_url during driver setup")
     yield webdriver
     webdriver.quit()
 
