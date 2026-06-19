@@ -33,6 +33,7 @@ class MaintenancePage(BasePage):
             return False
 
     def submit_password(self, password: str) -> None:
+        # Enter the admin password prompt and confirm to gain access
         try:
             self.action_clear_and_type(*self.LOC_PASSWORD_INPUT, password)
         except Exception:
@@ -61,6 +62,7 @@ class MaintenancePage(BasePage):
             return False
 
     def go_to_access_records(self) -> None:
+        # Navigate to Access Records section under Maintenance
         try:
             self.action_click(*self.LOC_ACCESS_RECORDS_TAB)
         except Exception:
@@ -78,6 +80,7 @@ class MaintenancePage(BasePage):
             pass
 
     def search_access_records(self, name: str) -> None:
+        # Search access records by name and wait for results or 'No Records'
         try:
             self.action_clear_and_type(*self.LOC_ACCESS_SEARCH_INPUT, name)
         except Exception:
@@ -117,6 +120,7 @@ class MaintenancePage(BasePage):
             pass
 
     def get_access_result_texts(self) -> list[str]:
+        # Return text values for access record search results
         try:
             rows = self.driver.find_elements(*self.LOC_ACCESS_RESULTS_ROWS)
             texts = [r.text.strip() for r in rows if r.text.strip()]

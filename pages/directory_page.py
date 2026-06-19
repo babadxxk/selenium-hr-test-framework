@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_visible, wait_present
+"""Page object for Directory search and employee card interactions."""
 
 
 class DirectoryPage(BasePage):
@@ -42,7 +43,7 @@ class DirectoryPage(BasePage):
             return False
 
     def get_employee_card_elements(self) -> list[WebElement]:
-        # return first non-empty candidate list of card elements
+        # Return the first non-empty list of employee card elements found on the page
         for loc in self.LOC_CARD_CANDIDATES:
             els = self.driver.find_elements(*loc)
             if els:
@@ -67,7 +68,7 @@ class DirectoryPage(BasePage):
             return []
 
     def get_card_name(self, card: WebElement) -> str:
-        # try common child elements for name
+        # Extract a human-readable name from a card element
         candidates = [".//h3", ".//h4", ".//h6", ".//p", ".//div//h3", ".//a"]
         for c in candidates:
             try:
@@ -87,7 +88,7 @@ class DirectoryPage(BasePage):
             return False
 
     def search_by_employee_name(self, name: str) -> None:
-        # Ensure viewport/zoom so the search input and suggestions are visible
+        # Perform a directory search by employee name and wait for results/cards
         try:
             self.driver.set_window_size(1920, 1080)
         except Exception:
@@ -166,7 +167,7 @@ class DirectoryPage(BasePage):
             pass
 
     def click_employee_by_name(self, name: str) -> bool:
-        # attempt to find the name in cards and click it
+        # Click the employee card or suggestion that matches the provided name
         cards = self.get_employee_card_elements()
         for c in cards:
             txt = self.get_card_name(c)

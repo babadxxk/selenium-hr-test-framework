@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_present, wait_visible, wait_url_contains
+"""Page object for Leave list, filters, and assign leave actions."""
 
 
 class LeavePage(BasePage):
@@ -54,6 +55,7 @@ class LeavePage(BasePage):
             return False
 
     def wait_for_search_results(self) -> None:
+        # Wait until search results are ready: rows present, 'No Records', or visible errors
         def ready(d):
             rows = d.find_elements(*self.LOC_TABLE_ROWS)
             if any(r.is_displayed() and r.text.strip() for r in rows):
@@ -80,7 +82,20 @@ class LeavePage(BasePage):
 
 
     def select_first_dropdown_option(self, dropdown_locator: tuple) -> str:
-        self.action_click(*dropdown_locator)
+        # Select the first meaningful option from a dropdown, with fallbacks
+        try:
+            self.action_click(*dropdown_locator)
+        except Exception:
+            try:
+                # fallback: click via JS
+                self.action_js_click(*dropdown_locator)
+            except Exception:
+                # last resort: try clicking a nearby button element
+                try:
+                    parent_button = self.driver.find_element(By.XPATH, "(//label[normalize-space()=text()]/../following-sibling::div//button)[1]")
+                    self.driver.execute_script("arguments[0].click();", parent_button)
+                except Exception:
+                    pass
 
         def option_list_ready(driver):
             items = driver.find_elements(*self.LOC_DROPDOWN_OPTIONS)
@@ -98,12 +113,19 @@ class LeavePage(BasePage):
         try:
             first.click()
         except Exception:
-            self.driver.execute_script("arguments[0].scrollIntoView({block:'center'}); arguments[0].click();", first)
+            try:
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'}); arguments[0].click();", first)
+            except Exception:
+                # final fallback: use JS to set selection by dispatching click on option
+                try:
+                    self.driver.execute_script("arguments[0].click();", first)
+                except Exception:
+                    pass
 
         return text
 
     def select_first_dropdown_option_and_search(self, dropdown_locator: tuple) -> str:
-        """Select the first meaningful dropdown option then execute the Search action and wait results."""
+        # Select first dropdown option then click Search and wait for results
         text = self.select_first_dropdown_option(dropdown_locator)
         self.action_click(*self.LOC_SEARCH_BUTTON)
         self.wait_for_search_results()

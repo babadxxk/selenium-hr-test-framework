@@ -61,8 +61,7 @@ def test_add_kpi_creates_new_kpi_record(logged_in_driver):
     perf.add_kpi(name)
 
     logged_in_driver.refresh()
-    rows = perf.get_kpi_rows_text()
-    if rows:
-        assert any(name in r for r in rows), f"New KPI '{name}' not found in KPI list"
-    else:
-        pytest.skip("No KPI rows to verify after add")
+    from tests.conftest import skip_or_fail_on_no_records
+
+    rows = skip_or_fail_on_no_records(logged_in_driver, perf.get_kpi_rows_text, "No KPI rows to verify after add", timeout=10)
+    assert any(name in r for r in rows), f"New KPI '{name}' not found in KPI list"

@@ -5,6 +5,8 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
+"""Small wrappers around Selenium expected conditions for consistent waits."""
+
 
 def wait_visible(driver: WebDriver, by: By, locator: str, timeout: int = 15):
     return WebDriverWait(driver, timeout).until(

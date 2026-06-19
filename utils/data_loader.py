@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+"""Helpers to load test data files (JSON, CSV) from the project data folder."""
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def load_json(relative_path: str) -> dict[str, Any]:

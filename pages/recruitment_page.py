@@ -55,6 +55,7 @@ class RecruitmentPage(BasePage):
             return False
 
     def search_candidate_by_name(self, name: str) -> None:
+        # Search candidates by name and submit search using available inputs
         try:
             wait_visible(self.driver, *self.LOC_CANDIDATE_NAME_FILTER, self.timeout)
             self.action_clear_and_type(*self.LOC_CANDIDATE_NAME_FILTER, name)
@@ -77,10 +78,12 @@ class RecruitmentPage(BasePage):
                     raise
 
     def filter_by_vacancy(self, vacancy: str) -> None:
+        # Filter candidate list by vacancy then search
         self._select_dropdown_option_by_label('Vacancy', vacancy)
         self.action_click(*self.LOC_SEARCH_BUTTON)
 
     def get_candidate_rows(self) -> list[str]:
+        # Return text lines for candidate rows/cards in the candidates table
         try:
             wait_visible(self.driver, *self.LOC_CANDIDATES_TABLE, self.timeout)
             rows = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-table-card') or contains(@class,'oxd-table-row') or @role='row']")
@@ -98,6 +101,7 @@ class RecruitmentPage(BasePage):
             return False
 
     def open_add_candidate_form(self) -> None:
+        # Click Add Candidate and wait for the form dialog
         self.action_click(*self.LOC_ADD_CANDIDATE_BUTTON)
         try:
             wait_present(self.driver, *self.LOC_ADD_CANDIDATE_FORM, self.timeout)

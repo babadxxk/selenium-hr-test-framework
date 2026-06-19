@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
 from pages.base_page import BasePage
+
+"""Page object for Buzz (newsfeed) interactions and posting."""
 from utils.wait_helpers import wait_visible
 
 
@@ -19,6 +21,7 @@ class BuzzPage(BasePage):
     LOC_MOST_RECENT_TAB = (By.XPATH, "//*[contains(normalize-space(),'Most Recent Posts') or contains(normalize-space(),'Most Recent')]")
 
     def is_buzz_loaded(self) -> bool:
+        # Check that the Buzz feed container is present and visible
         try:
             wait_visible(self.driver, *self.LOC_BUZZ_FEED, self.timeout)
             return True
@@ -26,13 +29,40 @@ class BuzzPage(BasePage):
             return False
 
     def get_post_input_placeholder(self) -> str | None:
+        # Return the prompt/placeholder text for the post input area, if available
         try:
             el = wait_visible(self.driver, *self.LOC_POST_INPUT, self.timeout)
-            return el.get_attribute("placeholder") or el.text or None
+            # prefer placeholder/aria-label/data-placeholder
+            for attr in ("placeholder", "aria-label", "data-placeholder", "title"):
+                try:
+                    val = el.get_attribute(attr)
+                    if val and val.strip():
+                        return val.strip()
+                except Exception:
+                    pass
+
+            # fallback: text content for contenteditable or nearby label
+            try:
+                txt = el.get_attribute("textContent") or el.text
+                if txt and txt.strip():
+                    return txt.strip()
+            except Exception:
+                pass
+
+            # try nearby elements that commonly show the prompt
+            try:
+                sibling = self.driver.find_element(By.XPATH, "//div[contains(@class,'orangehrm-buzz')]//label | //div[contains(@class,'orangehrm-buzz')]//p")
+                t = sibling.text.strip()
+                if t:
+                    return t
+            except Exception:
+                pass
+            return None
         except Exception:
             return None
 
     def is_photo_video_button_visible(self) -> bool:
+        # Check visibility of the Photo/Video share button near the post input
         try:
             wait_visible(self.driver, *self.LOC_PHOTO_VIDEO_BUTTON, self.timeout)
             return True
@@ -40,6 +70,7 @@ class BuzzPage(BasePage):
             return False
 
     def create_post(self, text: str) -> None:
+        # Create a new buzz post with the provided text and wait for it to appear
         try:
             input_el = wait_visible(self.driver, *self.LOC_POST_INPUT, self.timeout)
             try:
@@ -110,26 +141,33 @@ class BuzzPage(BasePage):
 
         self._last_post_text = text
 
+        # Wait longer and robustly for the feed to refresh; try Most Recent tab if needed
         try:
             if before_count is not None:
-                WebDriverWait(self.driver, 20).until(
+                WebDriverWait(self.driver, 30).until(
                     lambda d: len(d.find_elements(*self.LOC_POSTS_LIST)) > before_count
                 )
             else:
-                found = self.wait_for_post_text(text, timeout=20)
+                found = self.wait_for_post_text(text, timeout=30)
                 if not found:
                     try:
                         self.action_click(*self.LOC_MOST_RECENT_TAB)
                     except Exception:
                         pass
-                    self.wait_for_post_text(text, timeout=10)
+                    # final attempt with extended timeout
+                    self.wait_for_post_text(text, timeout=20)
         except Exception:
             try:
+                # As a last resort, wait a bit then try again
+                import time
+
+                time.sleep(3)
                 self.wait_for_post_text(text, timeout=10)
             except Exception:
                 pass
 
     def find_post_card_by_text(self, text: str, timeout: int = 10):
+        # Return the post/card element that contains the given text, or None
         """Return the post/card element that contains the given text, or None."""
         try:
             xpath_text = f"//*[contains(normalize-space(),'{text}')]"
@@ -141,6 +179,7 @@ class BuzzPage(BasePage):
             return None
 
     def get_latest_post_text(self) -> str | None:
+        # Attempt to read the most recent post text from the feed
         try:
             last = getattr(self, "_last_post_text", None)
             if last:
@@ -195,7 +234,7 @@ class BuzzPage(BasePage):
             return None
 
     def wait_for_post_text(self, text: str, timeout: int = 15) -> bool:
-        """Wait until an element containing the given post text appears."""
+        # Wait until an element containing the given post text appears
         try:
             xpath = f"//*[contains(normalize-space(),'{text}')]"
             WebDriverWait(self.driver, timeout).until(lambda d: d.find_elements(By.XPATH, xpath))

@@ -25,6 +25,7 @@ class PerformancePage(BasePage):
     LOC_SAVE_BUTTON = (By.XPATH, "//button[normalize-space()='Save']")
 
     def is_performance_loaded(self) -> bool:
+        # Check performance page header is visible
         try:
             wait_visible(self.driver, *self.LOC_PAGE_HEADER, self.timeout)
             return True
@@ -32,6 +33,7 @@ class PerformancePage(BasePage):
             return False
 
     def open_employee_trackers(self) -> None:
+        # Navigate to Employee Trackers section
         self.action_click(*self.LOC_EMPLOYEE_TRACKERS)
         wait_url_contains(self.driver, "employeeTrackers", self.timeout)
 
@@ -84,6 +86,7 @@ class PerformancePage(BasePage):
     
 
     def add_kpi(self, kpi_name: str) -> None:
+        # Open Add KPI form, populate fields and save
         self.action_click(*self.LOC_ADD_KPI_BUTTON)
         kpi_name_locators = [
             self.LOC_KPI_NAME_INPUT,
@@ -176,6 +179,7 @@ class PerformancePage(BasePage):
                 pass
 
     def get_kpi_rows_text(self) -> list[str]:
+        # Return list of KPI row texts if present
         try:
             wait_visible(self.driver, *self.LOC_PERF_TABLE, self.timeout)
             rows = self.driver.find_elements(By.XPATH, "//table[@role='table']//tbody//tr")

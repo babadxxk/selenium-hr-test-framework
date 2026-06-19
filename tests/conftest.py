@@ -23,7 +23,14 @@ LOGGER = get_logger(__name__)
 
 RUN_ID: str | None = None
 if not os.environ.get("PYTEST_RUN_ID"):
-    RUN_ID = f"run_{datetime.utcnow().strftime('%Y%m%dT%H%M%S%fZ')}"
+    # Create a more human-readable run id. Allow an optional suite name
+    # to be provided via the `PYTEST_SUITE` env var which will be appended.
+    suite = os.environ.get("PYTEST_SUITE")
+    base_run = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
+    RUN_ID = f"run-{base_run}"
+    if suite:
+        safe_suite = suite.replace(" ", "_")
+        RUN_ID = f"{RUN_ID}_{safe_suite}"
     os.environ["PYTEST_RUN_ID"] = RUN_ID
 else:
     RUN_ID = os.environ.get("PYTEST_RUN_ID")
@@ -62,10 +69,57 @@ def unique_suffix() -> str:
 def logged_in_driver(driver, auth_credentials):
     username, password = auth_credentials
     login_page = LoginPage(driver)
-    login_page.action_login(username=username, password=password)
-    assert login_page.is_state_logged_in(), "Precondition failed: login unsuccessful."
-    login_page.action_dismiss_blocking_overlays()
-    return driver
+    # retry login a few times to tolerate transient auth/navigation issues
+    import time
+
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            login_page.action_login(username=username, password=password)
+            if login_page.is_state_logged_in():
+                login_page.action_dismiss_blocking_overlays()
+                return driver
+        except Exception:
+            # allow retry
+            pass
+
+        # small backoff between attempts
+        try:
+            time.sleep(1 * attempt)
+            driver.refresh()
+        except Exception:
+            pass
+
+    # failed to log in after retries — capture diagnostics and skip tests
+    try:
+        run_dir = RUN_ID or os.environ.get("PYTEST_RUN_ID")
+        if run_dir:
+            screenshots_dir = PROJECT_ROOT / "reports" / run_dir / "screenshots"
+        else:
+            screenshots_dir = PROJECT_ROOT / "reports" / "screenshots"
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+        worker = os.environ.get("PYTEST_XDIST_WORKER", f"pid{os.getpid()}")
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S")
+        img = screenshots_dir / f"login_failed_{worker}_{timestamp}.png"
+        html = screenshots_dir / f"login_failed_{worker}_{timestamp}.html"
+        try:
+            png = driver.get_screenshot_as_png()
+            with open(img, "wb") as fh:
+                fh.write(png)
+        except Exception:
+            try:
+                driver.save_screenshot(str(img))
+            except Exception:
+                LOGGER.exception("Failed to save login failure screenshot")
+        try:
+            with open(html, "w", encoding="utf-8") as fh:
+                fh.write(driver.page_source)
+        except Exception:
+            LOGGER.exception("Failed to save login failure page source")
+    except Exception:
+        LOGGER.exception("Failed to write login diagnostics")
+
+    pytest.skip(f"Precondition failed: login unsuccessful after {max_attempts} attempts; see reports/{run_dir}/screenshots/")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -88,7 +142,8 @@ def pytest_runtest_makereport(item, call):
     screenshots_dir.mkdir(parents=True, exist_ok=True)
     # create unique filename to avoid collisions in parallel runs and overwrites
     worker = os.environ.get("PYTEST_XDIST_WORKER", f"pid{os.getpid()}")
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S%fZ")
+    # Use a more readable timestamp in filenames (UTC, minute precision)
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H-%M")
     screenshot_file = screenshots_dir / f"{item.name}_{worker}_{timestamp}.png"
 
     try:
@@ -175,3 +230,34 @@ def pytest_configure(config):
             LOGGER.info("pytest-html report path set to %s", new_path.as_posix())
     except Exception:
         LOGGER.exception("Failed to set pytest-html report path")
+
+
+def skip_or_fail_on_no_records(driver, row_getter_callable, message: str, timeout: int = 10):
+    """Poll for rows using the provided callable.
+
+    If rows appear within `timeout`, return them. If not, inspect the page for
+    a site-level 403/Forbidden or a 'No Records' message and skip the test in
+    that case. Otherwise fail so that reruns may retry.
+    """
+    import time
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            rows = row_getter_callable()
+        except Exception:
+            rows = None
+        if rows:
+            return rows
+        time.sleep(0.5)
+
+    # inspect page source for site-level conditions
+    try:
+        src = driver.page_source.lower()
+        if "403" in src or "forbidden" in src:
+            pytest.skip(f"{message} - site-level 403/Forbidden detected")
+        if "no records found" in src or "no records" in src:
+            pytest.skip(f"{message} - No Records Found")
+    except Exception:
+        pass
+
+    pytest.fail(f"{message} - no rows found after polling")

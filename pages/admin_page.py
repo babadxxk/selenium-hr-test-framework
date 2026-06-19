@@ -115,6 +115,7 @@ class AdminPage(BasePage):
         return False, (By.XPATH, "")
 
     def search_username(self, username: str) -> None:
+        # Search for a username using the filter input and submit Search
         # Try using the action helper first (handles clickable visibility)
         try:
             self.action_clear_and_type(*self.LOC_USERNAME_FILTER, username)
@@ -141,6 +142,7 @@ class AdminPage(BasePage):
     # filter methods removed (requirements FR-ADM-03 & FR-ADM-04)
 
     def get_table_row_texts(self) -> list[str]:
+        # Return row/card texts from the system users table
         try:
             # wait for at least one row or card to be present
             wait_present(self.driver, *self.LOC_TABLE_ROWS, self.timeout)
@@ -208,6 +210,7 @@ class AdminPage(BasePage):
             return False
 
     def wait_for_search_results(self) -> None:
+        # Wait until rows or a No Records indicator appears for the current search
         def search_ready(driver):
             try:
                 rows = driver.find_elements(*self.LOC_TABLE_ROWS)
@@ -236,6 +239,7 @@ class AdminPage(BasePage):
         WebDriverWait(self.driver, self.timeout).until(search_ready)
 
     def open_add_user_form(self) -> None:
+        # Click Add and wait for the Add User form to appear
         self.action_click(*self.LOC_ADD_BUTTON)
         wait_visible(self.driver, *self.LOC_ADD_USER_HEADER, self.timeout)
 

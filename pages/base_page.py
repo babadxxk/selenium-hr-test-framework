@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Shared page object base helpers used across page classes."""
+
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
@@ -32,6 +34,7 @@ class BasePage:
         self.driver.get(url)
 
     def action_click(self, by: By, locator: str) -> None:
+        # Click an element with a small retry loop and JS fallback for stubborn elements
         for _ in range(2):
             try:
                 wait_clickable(self.driver, by, locator, self.timeout).click()
@@ -48,11 +51,13 @@ class BasePage:
         )
 
     def action_type(self, by: By, locator: str, value: str) -> None:
+        # Type into a visible input element
         element = wait_visible(self.driver, by, locator, self.timeout)
         element.clear()
         element.send_keys(value)
 
     def action_clear_and_type(self, by: By, locator: str, value: str) -> None:
+        # Clear an element and type, preferring clickable then visible
         try:
             element = wait_clickable(self.driver, by, locator, self.timeout)
         except TimeoutException:
@@ -62,16 +67,19 @@ class BasePage:
         element.send_keys(value)
 
     def get_text(self, by: By, locator: str) -> str:
+        # Return stripped visible text of an element
         return wait_visible(self.driver, by, locator, self.timeout).text.strip()
 
     def is_visible(self, by: By, locator: str) -> bool:
         try:
+            # Wait until the element is visible
             wait_visible(self.driver, by, locator, self.timeout)
             return True
         except Exception:
             return False
 
     def get_element_count(self, by: By, locator: str) -> int:
+        # Return count of present elements matching locator
         wait_present(self.driver, by, locator, self.timeout)
         return len(self.driver.find_elements(by, locator))
 
@@ -93,6 +101,7 @@ class BasePage:
         return self.is_visible(*locator)
 
     def action_select_dropdown_by_label(self, label: str, option_text: str) -> None:
+        # Select an option from a labeled dropdown by visible option text
         dropdown = (
             By.XPATH,
             f"//label[normalize-space()='{label}']"
@@ -106,13 +115,16 @@ class BasePage:
         self.action_click(*option)
 
     def action_click_button(self, label: str) -> None:
+        # Click a button by its visible label
         locator = (By.XPATH, f"//button[normalize-space()='{label}']")
         self.action_click(*locator)
 
     def get_page_header(self) -> str:
+        # Return the page header text
         return self.get_text(*self.LOC_PAGE_HEADER)
 
     def action_dismiss_blocking_overlays(self) -> None:
+        # Try dismissing modals/overlays that block interaction
         for _ in range(3):
             close_buttons = self.driver.find_elements(*self.LOC_DIALOG_CLOSE)
             clicked = False
@@ -139,6 +151,7 @@ class BasePage:
             self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
 
     def action_ensure_sidebar_expanded(self) -> None:
+        # Ensure the side menu is expanded so menu items are visible
         visible_items = [
             item
             for item in self.driver.find_elements(*self.LOC_MENU_ITEM)
@@ -154,6 +167,7 @@ class BasePage:
             pass
 
     def action_js_click(self, by: By, locator: str) -> None:
+        # Click using JavaScript when standard click fails
         element = wait_present(self.driver, by, locator, self.timeout)
         self.driver.execute_script("arguments[0].click();", element)
 
@@ -162,6 +176,7 @@ class BasePage:
 
         Looks for a nearby toggle button and clicks it if the section appears collapsed.
         """
+        # Expand a collapsible section if a toggle exists
         try:
             toggle = self.driver.find_element(By.XPATH, f"//div[contains(. ,'{section_label}')]//button")
             if toggle and toggle.is_displayed():

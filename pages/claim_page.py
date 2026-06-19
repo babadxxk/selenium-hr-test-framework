@@ -28,12 +28,14 @@ class ClaimPage(BasePage):
     LOC_RECORDS_TABLE = (By.XPATH, "//table[@role='table' and (./thead or .//th)] | //div[contains(@class,'oxd-table')]")
 
     def go_to_submit_claim(self) -> None:
+        # Open the Submit Claim tab or ensure claim section is loaded
         try:
             self.action_click(*self.LOC_SUBMIT_TAB)
         except Exception:
             wait_url_contains(self.driver, "/claim", self.timeout)
 
     def is_submit_claim_loaded(self) -> bool:
+        # Verify Submit Claim form fields are present
         try:
             try:
                 self.action_dismiss_blocking_overlays()
@@ -51,6 +53,7 @@ class ClaimPage(BasePage):
             return False
 
     def get_event_options(self) -> list[str]:
+        # Open the Event dropdown and return available option texts
         clicked = False
         try:
             self.action_click(*self.LOC_EVENT_DROPDOWN)
@@ -87,6 +90,7 @@ class ClaimPage(BasePage):
             return False
 
     def submit_claim_without_event(self) -> None:
+        # Attempt to submit the form without selecting an event to trigger required validation
         try:
             self.action_click(*self.LOC_SUBMIT_BUTTON)
         except Exception:
@@ -152,6 +156,7 @@ class ClaimPage(BasePage):
             return False
 
     def add_event(self, name: str | None) -> None:
+        # Add an Event entry (or click Save without name if None)
         try:
             self.action_click(*self.LOC_ADD_EVENT_BUTTON)
         except Exception:
@@ -180,6 +185,7 @@ class ClaimPage(BasePage):
                 pass
 
     def get_events_texts(self) -> list[str]:
+        # Return texts of existing events from the events table
         try:
             rows = self.driver.find_elements(By.XPATH, "//table//tbody//tr | //div[contains(@class,'oxd-table')]//div[contains(@class,'oxd-table-row')]")
             return [r.text.strip() for r in rows if r.text.strip()]

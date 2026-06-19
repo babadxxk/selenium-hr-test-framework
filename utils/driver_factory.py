@@ -9,6 +9,8 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 
+"""Factory for creating configured Chrome WebDriver instances used in tests."""
+
 def _clear_stale_wdm_lock(max_age_seconds: int = 120) -> None: 
     """Remove stale webdriver-manager lock files that block driver setup on Windows."""
     lock_dir = Path.home() / ".wdm"

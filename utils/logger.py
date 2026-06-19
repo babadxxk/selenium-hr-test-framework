@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+"""Simple logger factory that writes to reports/logs and stdout."""
+
 def get_logger(name: str) -> logging.Logger:
     """Returns a timestamped INFO logger with file and console handlers"""
     logs_dir = Path("reports/logs")

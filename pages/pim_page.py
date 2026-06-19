@@ -7,6 +7,7 @@ from selenium.common.exceptions import TimeoutException
 
 from pages.base_page import BasePage
 from utils.wait_helpers import wait_present, wait_visible, wait_url_contains
+"""Page object for PIM (employee) operations like search and add."""
 
 
 class PIMPage(BasePage):
@@ -54,9 +55,11 @@ class PIMPage(BasePage):
     LOC_CONTACT_DETAILS_TAB = (By.XPATH, "//a[normalize-space()='Contact Details']")
 
     def get_header_text(self) -> str:
+        # Return the page header text for PIM pages
         return self.get_page_header()
 
     def is_employee_list_loaded(self) -> bool:
+        # Confirm the employee list/table is visible on the PIM page
         try:
             wait_url_contains(self.driver, "/pim", self.timeout)
             wait_visible(self.driver, *self.LOC_TABLE_ROWS, self.timeout)
@@ -65,6 +68,7 @@ class PIMPage(BasePage):
             return False
 
     def search_by_first_name(self, name: str) -> None:
+        # Populate the employee name search input and submit Search
         if self.is_visible(*self.LOC_SEARCH_EMPLOYEE_NAME):
             try:
                 self.action_clear_and_type(*self.LOC_SEARCH_EMPLOYEE_NAME, name)
@@ -117,6 +121,7 @@ class PIMPage(BasePage):
         except Exception:
             pass
 
+        # Populate the employee id search input and submit Search
         if self.is_visible(*self.LOC_SEARCH_EMPLOYEE_ID):
             try:
                 self.action_clear_and_type(*self.LOC_SEARCH_EMPLOYEE_ID, emp_id)
@@ -157,6 +162,7 @@ class PIMPage(BasePage):
                 el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
 
+        # submit the search request
         self.action_click(*self.LOC_SEARCH_BUTTON)
 
         try:
@@ -167,6 +173,58 @@ class PIMPage(BasePage):
         except TimeoutException:
             try:
                 self.wait_for_search_results()
+            except Exception:
+                pass
+
+        try:
+            rows = [r.text for r in self.driver.find_elements(*self.LOC_TABLE_ROWS) if r.is_displayed() and (r.text or '').strip()]
+        except Exception:
+            rows = []
+
+        if not any(emp_id in r for r in rows):
+            # if there's an explicit 'No Records' indicator, bail out early
+            try:
+                no_nodes = self.driver.find_elements(*self.LOC_NO_RECORDS)
+                if any(n.is_displayed() for n in no_nodes):
+                    return
+            except Exception:
+                pass
+
+            # retry: re-enter the id and click search again, then wait a bit longer
+            try:
+                if self.is_visible(*self.LOC_SEARCH_EMPLOYEE_ID):
+                    el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
+                    try:
+                        el.clear()
+                        el.send_keys(emp_id)
+                        el.send_keys(Keys.TAB)
+                    except Exception:
+                        self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input')); arguments[0].dispatchEvent(new Event('change'));", el, emp_id)
+                else:
+                    # fallback: set value on a found input
+                    elems = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-form-row')]//input")
+                    if elems:
+                        try:
+                            elems[0].clear()
+                            elems[0].send_keys(emp_id)
+                        except Exception:
+                            self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", elems[0], emp_id)
+                try:
+                    self.action_click(*self.LOC_SEARCH_BUTTON)
+                except Exception:
+                    pass
+
+                # wait a bit longer on retry
+                try:
+                    WebDriverWait(self.driver, max(10, self.timeout)).until(
+                        lambda d: any(emp_id in (r.text or '') for r in d.find_elements(*self.LOC_TABLE_ROWS))
+                        or any(n.is_displayed() for n in d.find_elements(*self.LOC_NO_RECORDS))
+                    )
+                except Exception:
+                    try:
+                        self.wait_for_search_results()
+                    except Exception:
+                        pass
             except Exception:
                 pass
 

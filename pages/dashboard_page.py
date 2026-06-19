@@ -89,11 +89,13 @@ class DashboardPage(BasePage):
         return self.is_visible(*self.LOC_HEADER)
 
     def action_logout(self) -> None:
+        # Logout via user dropdown and verify the login page is shown
         self.action_click(*self.LOC_USER_DROPDOWN)
         self.action_click(*self.LOC_LOGOUT)
         wait_url_contains(self.driver, "/auth/login", self.timeout)
 
     def action_refresh_dashboard(self) -> None:
+        # Refresh dashboard page and wait for header/widgets to load
         self.driver.refresh()
         wait_url_contains(self.driver, "/dashboard", self.timeout)
         wait_visible(self.driver, *self.LOC_HEADER, self.timeout)
@@ -159,6 +161,7 @@ class DashboardPage(BasePage):
         self.action_click_sidebar_menu(*locator)
 
     def action_click_assign_leave(self) -> None:
+        # Click Assign Leave shortcut and wait for assign form URL
         self.action_click(*self.LOC_ASSIGN_LEAVE)
         wait_url_contains(self.driver, "/leave/assignLeave", self.timeout)
 
@@ -183,6 +186,7 @@ class DashboardPage(BasePage):
         wait_url_contains(self.driver, "/time/viewMyTimesheet", self.timeout)
 
     def action_go_to_dashboard(self) -> None:
+        # Navigate to Dashboard via sidebar
         self.action_click_sidebar_menu(*self.LOC_DASHBOARD_MENU)
         wait_url_contains(self.driver, "/dashboard", self.timeout)
 
@@ -191,6 +195,7 @@ class DashboardPage(BasePage):
         wait_url_contains(self.driver, "/admin", self.timeout)
 
     def action_go_to_pim(self) -> None:
+        # Navigate to PIM module and wait for PIM header
         self.action_click_sidebar_menu(*self.LOC_PIM_MENU)
         wait_url_contains(self.driver, "/pim", self.timeout)
         wait_visible(self.driver, *self.LOC_HEADER, self.timeout)

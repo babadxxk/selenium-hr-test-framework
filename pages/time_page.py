@@ -31,6 +31,7 @@ class TimePage(BasePage):
             return False
 
     def search_employee(self, employee_name: str) -> None:
+        # Search for an employee by name using the timesheets search input
         wait_visible(self.driver, *self.LOC_EMPLOYEE_NAME_FILTER, self.timeout)
         self.action_clear_and_type(*self.LOC_EMPLOYEE_NAME_FILTER, employee_name)
         
@@ -41,6 +42,7 @@ class TimePage(BasePage):
             search_input.send_keys("\n")
 
     def search_employee_and_select_from_dropdown(self, employee_name: str) -> None:
+        # Type into the employee field and select matching autocomplete option if present
         wait_visible(self.driver, *self.LOC_EMPLOYEE_NAME_FILTER, self.timeout)
         self.action_clear_and_type(*self.LOC_EMPLOYEE_NAME_FILTER, employee_name)
         
@@ -66,6 +68,7 @@ class TimePage(BasePage):
             pass
 
     def get_timesheet_records(self) -> list[str]:
+        # Return timesheet table row texts
         try:
             wait_visible(self.driver, *self.LOC_TIMESHEET_TABLE, self.timeout)
             rows = self.driver.find_elements(By.XPATH, "//table[@role='table']//tbody//tr")
