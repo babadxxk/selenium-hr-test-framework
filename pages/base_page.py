@@ -100,6 +100,13 @@ class BasePage:
         )
         return self.is_visible(*locator)
 
+    def is_present(self, by: By, locator: str) -> bool:
+        """Return True if element(s) matching locator are present in the DOM without waiting."""
+        try:
+            return len(self.driver.find_elements(by, locator)) > 0
+        except Exception:
+            return False
+
     def action_select_dropdown_by_label(self, label: str, option_text: str) -> None:
         # Select an option from a labeled dropdown by visible option text
         dropdown = (

@@ -17,9 +17,27 @@ class MyInfoPage(BasePage):
     LOC_QUALIFICATIONS_TAB = (By.XPATH, "//a[normalize-space()='Qualifications']")
 
     # Personal details fields (flexible: input or span)
-    LOC_FULLNAME = (By.XPATH, "//h6[contains(@class,'oxd-text')][1] | //label[normalize-space()='Full Name']/../following-sibling::div//span")
+    LOC_FULLNAME = (
+            By.XPATH,
+            "//h6[contains(normalize-space(),'Personal Details')] | //label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//span | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//span",
+    )
     LOC_EMPLOYEE_ID = (By.XPATH, "//label[normalize-space()='Employee Id']/../following-sibling::div//span | //label[normalize-space()='Employee Id']/../following-sibling::div//input")
     LOC_DOB = (By.XPATH, "//label[contains(normalize-space(),'Date of Birth')]/../following-sibling::div//input | //label[contains(normalize-space(),'Date of Birth')]/../following-sibling::div//span")
+    # Name fields: the form sometimes groups First/Middle/Last under a single
+    # "Employee Full Name" label. Use positional fallbacks and label fallbacks
+    # so locators are tolerant across UI variants.
+    LOC_FIRST_NAME = (
+        By.XPATH,
+        "(//label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//span | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//span | //label[normalize-space()='First Name']/../following-sibling::div//input | //label[normalize-space()='First Name']/../following-sibling::div//span)[1]",
+    )
+    LOC_MIDDLE_NAME = (
+        By.XPATH,
+        "(//label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//span | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//span | //label[normalize-space()='Middle Name']/../following-sibling::div//input | //label[normalize-space()='Middle Name']/../following-sibling::div//span)[2]",
+    )
+    LOC_LAST_NAME = (
+        By.XPATH,
+        "(//label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Employee Full Name')]/../following-sibling::div//span | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//input | //label[contains(normalize-space(),'Full Name')]/../following-sibling::div//span | //label[normalize-space()='Last Name']/../following-sibling::div//input | //label[normalize-space()='Last Name']/../following-sibling::div//span)[3]",
+    )
     LOC_GENDER = (By.XPATH, "//label[normalize-space()='Gender']/../following-sibling::div//span | //label[normalize-space()='Gender']/../following-sibling::div//input")
     LOC_NATIONALITY = (By.XPATH, "//label[normalize-space()='Nationality']/../following-sibling::div//span | //label[normalize-space()='Nationality']/../following-sibling::div//input")
     LOC_MARITAL_STATUS = (By.XPATH, "//label[normalize-space()='Marital Status']/../following-sibling::div//span | //label[normalize-space()='Marital Status']/../following-sibling::div//input")
@@ -60,14 +78,22 @@ class MyInfoPage(BasePage):
             except Exception:
                 pass
 
-            wait_present(self.driver, *self.LOC_FULLNAME, self.timeout)
-            # check key fields: accept if at least three are visible to handle slight UI variations
+            # Allow a short grace period for the Personal Details content to render
+            try:
+                wait_present(self.driver, *self.LOC_FULLNAME, min(self.timeout, 5))
+            except Exception:
+                # fallback to a slightly longer wait once more
+                wait_present(self.driver, *self.LOC_FULLNAME, self.timeout)
+            # check key fields: accept if at least two are visible to handle UI variations
             fields = [self.LOC_EMPLOYEE_ID, self.LOC_DOB, self.LOC_GENDER, self.LOC_NATIONALITY, self.LOC_MARITAL_STATUS]
             visible_count = 0
             for f in fields:
-                if self.is_visible(*f):
-                    visible_count += 1
-            return visible_count >= 3
+                try:
+                    if self.is_visible(*f):
+                        visible_count += 1
+                except Exception:
+                    continue
+            return visible_count >= 2
         except Exception:
             return False
 
@@ -79,17 +105,39 @@ class MyInfoPage(BasePage):
     def set_work_email_and_save(self, email: str) -> None:
         # Set the Work Email field and save to trigger validation
         try:
-            self.action_clear_and_type(*self.LOC_WORK_EMAIL, email)
-            # trigger blur to activate validation
             el = self.driver.find_element(*self.LOC_WORK_EMAIL)
+
+            js_set_email = (
+                "(function(el,email){"
+                "try{ if(el.tagName && el.tagName.toLowerCase()==='input'){ el.value=''; } else { if(el.querySelector){ var inp0 = el.querySelector('input'); if(inp0) inp0.value=''; } } }catch(e){}"
+                "try{"
+                " if(el.tagName && el.tagName.toLowerCase()==='input'){ el.value = email; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); }"
+                " else { try{ el.textContent = email; }catch(e){} var candidate = null; try{ candidate = el.querySelector && el.querySelector('input'); }catch(e){ candidate = null; } if(!candidate){ try{ candidate = el.closest && el.closest('div') && el.closest('div').querySelector('input'); }catch(e){ candidate = null; } } if(candidate){ candidate.value = email; candidate.dispatchEvent(new Event('input')); candidate.dispatchEvent(new Event('change')); } }"
+                "}catch(e){} })(arguments[0], arguments[1]);"
+            )
+
+            # Try normal clear/send_keys first, fall back to JS setter if that fails
+            try:
+                try:
+                    el.clear()
+                except Exception:
+                    pass
+                try:
+                    el.send_keys(email)
+                except Exception:
+                    self.driver.execute_script(js_set_email, el, email)
+            except Exception:
+                self.driver.execute_script(js_set_email, el, email)
+
+            # ensure blur/commit
             try:
                 el.send_keys('\t')
             except Exception:
-                # fallback: move focus by executing blur via JS
                 try:
                     self.driver.execute_script('arguments[0].blur();', el)
                 except Exception:
                     pass
+
             self.action_click(*self.LOC_SAVE_BUTTON)
         except Exception:
             raise

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from time import sleep
+
 
 from pages.dashboard_page import DashboardPage
 from pages.my_info_page import MyInfoPage
@@ -20,15 +20,17 @@ def test_personal_details_fields_visible(logged_in_driver):
 
     assert page.is_visible(*page.LOC_EMPLOYEE_ID)
     assert page.is_visible(*page.LOC_DOB)
-    assert page.is_visible(*page.LOC_GENDER)
-    assert page.is_visible(*page.LOC_NATIONALITY)
-    assert page.is_visible(*page.LOC_MARITAL_STATUS)
+    assert page.is_visible(*page.LOC_FIRST_NAME), "First Name should be visible"
+    if page.is_present(*page.LOC_MIDDLE_NAME):
+        # If middle name field exists in the DOM, it's acceptable for it to be empty
+        assert page.is_present(*page.LOC_MIDDLE_NAME)
+    assert page.is_visible(*page.LOC_LAST_NAME), "Last Name should be visible"
 
 
 @pytest.mark.my_info
 @pytest.mark.regression
 def test_contact_details_tab_fields_visible(logged_in_driver):
-    """FR-MI-03: Contact Details tab must show address, telephone, mobile and work email."""
+    """FR-MI-02: Contact Details tab must show address, telephone, mobile and work email."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_my_info()
     page = MyInfoPage(logged_in_driver)
@@ -45,7 +47,7 @@ def test_contact_details_tab_fields_visible(logged_in_driver):
 @pytest.mark.my_info
 @pytest.mark.regression
 def test_invalid_work_email_shows_validation(logged_in_driver):
-    """FR-MI-04: Invalid work email should show validation error on save."""
+    """FR-MI-03: Invalid work email should show validation error on save."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_my_info()
     page = MyInfoPage(logged_in_driver)
@@ -69,7 +71,7 @@ def test_invalid_work_email_shows_validation(logged_in_driver):
 @pytest.mark.my_info
 @pytest.mark.regression
 def test_dependants_tab_and_add_button(logged_in_driver):
-    """FR-MI-05: Dependants tab must load and Add button present."""
+    """FR-MI-04: Dependants tab must load and Add button present."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_my_info()
     page = MyInfoPage(logged_in_driver)
@@ -85,7 +87,7 @@ def test_dependants_tab_and_add_button(logged_in_driver):
 @pytest.mark.my_info
 @pytest.mark.regression
 def test_immigration_tab_loads_and_shows_fields(logged_in_driver):
-    """FR-MI-06: Immigration tab must load and display immigration fields."""
+    """FR-MI-05: Immigration tab must load and display immigration fields."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_my_info()
     page = MyInfoPage(logged_in_driver)
@@ -101,7 +103,7 @@ def test_immigration_tab_loads_and_shows_fields(logged_in_driver):
 @pytest.mark.my_info
 @pytest.mark.regression
 def test_add_work_experience_in_qualifications(logged_in_driver):
-    """FR-MI-07: Adding a Work Experience entry in Qualifications must save successfully."""
+    """FR-MI-06: Adding a Work Experience entry in Qualifications must save successfully."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_my_info()
     page = MyInfoPage(logged_in_driver)

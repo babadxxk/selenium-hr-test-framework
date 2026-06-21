@@ -457,36 +457,85 @@ class PIMPage(BasePage):
     def get_current_employee_id(self) -> str:
         # Wait briefly for the employee id field or display to appear after save.
         try:
+            # Try the canonical input field first with a slightly longer wait
             try:
                 wait_visible(self.driver, *self.LOC_EMPLOYEE_ID_FIELD, timeout=10)
                 element = self.driver.find_element(*self.LOC_EMPLOYEE_ID_FIELD)
-                val = element.get_attribute("value") or element.text or ""
-                if val and val.strip():
-                    return val.strip()
+                val = (element.get_attribute("value") or element.text or element.get_attribute('textContent') or "").strip()
+                if val:
+                    return self._extract_likely_id(val)
             except Exception:
                 pass
 
+            # Try alternate input
             try:
                 wait_visible(self.driver, *self.LOC_EMPLOYEE_ID_FIELD_ALT, timeout=5)
                 element = self.driver.find_element(*self.LOC_EMPLOYEE_ID_FIELD_ALT)
-                val = element.get_attribute("value") or element.text or ""
-                if val and val.strip():
-                    return val.strip()
+                val = (element.get_attribute("value") or element.text or element.get_attribute('textContent') or "").strip()
+                if val:
+                    return self._extract_likely_id(val)
             except Exception:
                 pass
 
+            # Try display/span style
             try:
                 wait_visible(self.driver, *self.LOC_EMPLOYEE_ID_DISPLAY, timeout=5)
                 element = self.driver.find_element(*self.LOC_EMPLOYEE_ID_DISPLAY)
-                val = element.text or ""
-                if val and val.strip():
-                    return val.strip()
+                val = (element.text or element.get_attribute('textContent') or "").strip()
+                if val:
+                    return self._extract_likely_id(val)
             except Exception:
                 pass
         except Exception:
             pass
 
+        # final fallback: try to parse first table row text
+        try:
+            rid = self.get_first_table_row_employee_id()
+            if rid:
+                return rid
+        except Exception:
+            pass
+
         return ""
+
+    def _extract_likely_id(self, text: str) -> str:
+        """From a block of text, choose the token most likely to be the employee id.
+
+        Strategy: split on whitespace and punctuation, prefer the longest token consisting
+        of alphanumerics, underscores or hyphens, with minimum length 2.
+        """
+        import re
+
+        tokens = re.findall(r"[A-Za-z0-9_-]+", text)
+        if not tokens:
+            return text.strip()
+
+        # Prefer token that isn't obviously a name component (simple heuristic)
+        tokens = [t for t in tokens if len(t) >= 2]
+        if not tokens:
+            return text.strip()
+
+        # Return the longest token
+        tokens.sort(key=lambda t: len(t), reverse=True)
+        return tokens[0]
+
+    def get_first_table_row_employee_id(self) -> str:
+        """Attempt to extract an employee id string from the first visible table row.
+
+        This parses the row text and chooses a likely id token using the same
+        heuristic as `_extract_likely_id`.
+        """
+        try:
+            rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
+            visible = [r for r in rows if r.is_displayed() and (r.text or '').strip()]
+            if not visible:
+                return ""
+            first = visible[0]
+            txt = first.text or first.get_attribute('textContent') or ""
+            return self._extract_likely_id(txt)
+        except Exception:
+            return ""
 
     def open_contact_details(self) -> None:
         self.action_click(*self.LOC_CONTACT_DETAILS_TAB)

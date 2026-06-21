@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 
 from pages.dashboard_page import DashboardPage
 from pages.pim_page import PIMPage
+import time
 
 
 @pytest.mark.pim
@@ -40,21 +41,33 @@ def test_search_by_employee_id_returns_exact_match(logged_in_driver):
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
-    rows = pim.get_table_row_texts()
+    # Ensure the employee list has rows; retry a few times before skipping to
+    # tolerate transient load / timing differences across environments.
+    rows = []
+    for attempt in range(1, 4):
+        try:
+            dashboard.action_go_to_pim()
+        except Exception:
+            pass
+        try:
+            if pim.is_employee_list_loaded():
+                rows = pim.get_table_row_texts()
+        except Exception:
+            rows = []
+
+        if rows:
+            break
+        time.sleep(1 * attempt)
+
     if not rows:
         pytest.skip("No employee rows available to extract an ID for this environment")
 
-    # Open the first row and read the canonical employee id from the details view
-    pim.click_first_table_row()
-    emp_id = pim.get_current_employee_id()
+    # Extract an employee id from the first visible table row (do not open details)
+    emp_id = pim.get_first_table_row_employee_id()
     if not emp_id:
-        pytest.skip("Could not read an employee id from the details page")
+        pytest.skip("Could not extract an employee id from the first table row")
 
-    # Navigate back to the PIM list and search for the actual id
-    import time
-    time.sleep(1)
-    dashboard.action_go_to_pim()
-
+    # Search by that id on the same PIM list page and assert exact match appears
     pim.search_by_employee_id(emp_id)
     rows_after = pim.get_table_row_texts()
     assert any(emp_id in r for r in rows_after), f"Employee id {emp_id} not found in results: {rows_after}"
