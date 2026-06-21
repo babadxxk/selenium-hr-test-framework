@@ -119,34 +119,26 @@ class ClaimPage(BasePage):
         except Exception:
             return False
     def go_to_events_config(self) -> None:
+        # Always navigate directly to the stable Events URL (menu navigation is flaky).
+        base = self.driver.current_url.split('/web')[0]
+        target = base + "/web/index.php/claim/viewEvents"
         try:
-            cfg = (By.XPATH, "//button[normalize-space()='Configuration'] | //div[contains(@class,'oxd-topbar-body')]//button[contains(., 'Configuration')]")
+            self.driver.get(target)
+            # Give a longer grace period for the events component to render
+            wait_visible(self.driver, *self.LOC_EVENTS_TABLE, max(15, self.timeout))
+            return
+        except Exception:
+            # final attempt: try again with a short pause then load
             try:
-                self.action_click(*cfg)
+                import time
+
+                time.sleep(1)
+                self.driver.get(target)
+                wait_visible(self.driver, *self.LOC_EVENTS_TABLE, max(10, self.timeout))
+                return
             except Exception:
-                pass
-
-            self.action_click(*self.LOC_EVENTS_TAB)
-        except Exception:
-            base = self.driver.current_url.split('/web')[0]
-            candidates = [
-                "/web/index.php/claim/configureClaim",
-                "/web/index.php/claim/saveClaimEvent",
-                "/web/index.php/claim/listClaimEvent",
-                "/web/index.php/claim/listClaimEvents",
-            ]
-            for path in candidates:
-                try:
-                    self.driver.get(base + path)
-                    break
-                except Exception:
-                    continue
-
-        wait_url_contains(self.driver, "claim", self.timeout)
-        try:
-            wait_visible(self.driver, *self.LOC_EVENTS_TABLE, self.timeout)
-        except Exception:
-            pass
+                # if navigation repeatedly fails, raise so callers can react
+                raise
 
     def is_events_list_visible(self) -> bool:
         try:
@@ -157,10 +149,22 @@ class ClaimPage(BasePage):
 
     def add_event(self, name: str | None) -> None:
         # Add an Event entry (or click Save without name if None)
+        # Ensure events table/open view is visible before adding
+        try:
+            if not self.is_events_list_visible():
+                self.go_to_events_config()
+        except Exception:
+            pass
+
         try:
             self.action_click(*self.LOC_ADD_EVENT_BUTTON)
         except Exception:
-            pass
+            # fallback: try clicking any Add button under events section
+            try:
+                alt = (By.XPATH, "//section//button[normalize-space()='Add'] | //table//button[normalize-space()='Add']")
+                self.action_click(*alt)
+            except Exception:
+                pass
         if name is None:
             try:
                 self.action_click(*self.LOC_SAVE_BUTTON)
@@ -184,13 +188,122 @@ class ClaimPage(BasePage):
             except Exception:
                 pass
 
+        # If a name was provided, wait for the saved event to appear in the events list.
+        if name:
+            try:
+                import time
+                # Poll for a table-row that contains the given event name. This handles
+                # rows that are not at the top because the table is sorted alphabetically.
+                end = time.time() + max(30, self.timeout)
+                while time.time() < end:
+                    try:
+                        try:
+                            wait_visible(self.driver, *self.LOC_EVENTS_TABLE, 3)
+                        except Exception:
+                            pass
+
+                        if self.event_exists(name):
+                            return
+                    except Exception:
+                        pass
+                    time.sleep(0.5)
+
+                # final attempt: reload the events view and check again
+                try:
+                    self.driver.get(base + "/web/index.php/claim/viewEvents")
+                except Exception:
+                    try:
+                        self.driver.refresh()
+                    except Exception:
+                        pass
+
+                end = time.time() + 15
+                while time.time() < end:
+                    try:
+                        if self.event_exists(name):
+                            return
+                    except Exception:
+                        pass
+                    time.sleep(0.5)
+            except Exception:
+                pass
+
     def get_events_texts(self) -> list[str]:
         # Return texts of existing events from the events table
         try:
-            rows = self.driver.find_elements(By.XPATH, "//table//tbody//tr | //div[contains(@class,'oxd-table')]//div[contains(@class,'oxd-table-row')]")
-            return [r.text.strip() for r in rows if r.text.strip()]
+            # Ensure the events table is present; if not, try reloading the events view
+            try:
+                wait_visible(self.driver, *self.LOC_EVENTS_TABLE, 5)
+            except Exception:
+                try:
+                    base = self.driver.current_url.split('/web')[0]
+                    self.driver.get(base + "/web/index.php/claim/viewEvents")
+                    wait_visible(self.driver, *self.LOC_EVENTS_TABLE, max(10, self.timeout))
+                except Exception:
+                    pass
+
+            # Prefer extracting the 'Event Name' column if headers exist
+            try:
+                table = self.driver.find_element(By.XPATH, "//table[@role='table'] | //table[.//th]")
+                # find header index for Event Name
+                headers = table.find_elements(By.XPATH, ".//th | .//thead//th")
+                idx = None
+                for i, h in enumerate(headers):
+                    txt = h.text.strip()
+                    if txt and 'event name' in txt.lower():
+                        idx = i + 1
+                        break
+                rows = table.find_elements(By.XPATH, ".//tbody//tr")
+                results = []
+                if idx is not None:
+                    for r in rows:
+                        try:
+                            cell = r.find_element(By.XPATH, f".//td[{idx}]")
+                            t = cell.text.strip()
+                            if t:
+                                results.append(t)
+                        except Exception:
+                            continue
+                else:
+                    for r in rows:
+                        t = r.text.strip()
+                        if t:
+                            results.append(t)
+                if results:
+                    return results
+            except Exception:
+                pass
+
+            # Fallback: div-based table rows
+            try:
+                rows = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-table')]//div[contains(@class,'oxd-table-row')]")
+                texts = [r.text.strip() for r in rows if r.text.strip()]
+                if texts:
+                    return texts
+            except Exception:
+                pass
+
+            return []
         except Exception:
             return []
+
+    def event_exists(self, name: str) -> bool:
+        """Return True if an event row containing `name` exists in the events table.
+
+        This looks for either classic <table> rows or div-based table rows used
+        in different OrangeHRM builds.
+        """
+        try:
+            # XPath matches a table row with a TD containing the name, or a div-row with any descendant
+            # containing the name. Use normalize-space to avoid whitespace issues.
+            xpath = (
+                f"//table//tbody//tr[.//td[contains(normalize-space(.), \"{name}\")]]"
+                f" | //div[contains(@class,'oxd-table-row')][.//*[contains(normalize-space(.), \"{name}\")]]"
+            )
+            els = self.driver.find_elements(By.XPATH, xpath)
+            return len(els) > 0
+        except Exception:
+            return False
 
     def go_to_employee_claims(self) -> None:
         """Navigate to the Employee Claims tab and wait for the records table to appear."""

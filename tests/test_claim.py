@@ -61,10 +61,21 @@ def test_add_event_creates_new_event_record(logged_in_driver):
 
     name = f"AutoEvent_{uuid.uuid4().hex[:6]}"
     page.add_event(name)
+    import time
 
-    logged_in_driver.refresh()
-    texts = page.get_events_texts()
-    if not texts:
-        pytest.skip("No events rows available to verify after add")
+    found = False
+    end = time.time() + 45
+    while time.time() < end:
+        try:
+            if page.event_exists(name):
+                found = True
+                break
+        except Exception:
+            pass
+        try:
+            logged_in_driver.refresh()
+        except Exception:
+            pass
+        time.sleep(1)
 
-    assert any(name in t for t in texts), f"New event '{name}' not found in events list"
+    assert found, f"New event '{name}' not found in events list after retrying"
