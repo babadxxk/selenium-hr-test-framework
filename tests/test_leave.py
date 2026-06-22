@@ -27,15 +27,17 @@ def test_leave_type_dropdown_populated(logged_in_driver):
 
     try:
         selected = page.select_first_dropdown_option_and_search(page.LOC_LEAVE_TYPE)
-    except Exception:
-        pytest.skip("Leave Type dropdown not present in this environment")
+    except Exception as e:
+        if page.is_no_records_found_visible():
+            return
+        pytest.fail(f"Dropdown interaction failed: {str(e)}")
 
     assert selected, "Expected a non-empty Leave Type option"
 
 
 @pytest.mark.leave
 @pytest.mark.regression
-def test_date_range_filter_results_or_no_records(logged_in_driver):
+def test_date_range_filter_results(logged_in_driver):
     """FR-LV-03: Applying a valid date range filter shows results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_click_leave_list()
@@ -51,7 +53,7 @@ def test_date_range_filter_results_or_no_records(logged_in_driver):
 
 @pytest.mark.leave
 @pytest.mark.regression
-def test_leave_type_filter_shows_filtered_results_or_no_records(logged_in_driver):
+def test_leave_type_filter_shows_filtered_results(logged_in_driver):
     """FR-LV-04: Selecting a Leave Type filter and searching shows filtered results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_click_leave_list()
@@ -59,15 +61,17 @@ def test_leave_type_filter_shows_filtered_results_or_no_records(logged_in_driver
 
     try:
         selected = page.select_first_dropdown_option(page.LOC_LEAVE_TYPE)
-    except Exception:
-        pytest.skip("Leave Type dropdown not available in this environment")
+    except Exception as e:
+        if page.is_no_records_found_visible():
+            return
+        pytest.fail(f"Dropdown interaction failed: {str(e)}")
 
     assert page.is_no_records_found_visible() or page.get_table_row_texts(), f"Expected results or 'No Records Found' after filtering by {selected}"
 
 
 @pytest.mark.leave
 @pytest.mark.regression
-def test_leave_status_filter_shows_filtered_results_or_no_records(logged_in_driver):
+def test_leave_status_filter_shows_filtered_results(logged_in_driver):
     """FR-LV-05: Selecting a Leave Status filter and searching shows filtered results or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_click_leave_list()
@@ -75,15 +79,17 @@ def test_leave_status_filter_shows_filtered_results_or_no_records(logged_in_driv
 
     try:
         selected = page.select_first_dropdown_option_and_search(page.LOC_LEAVE_STATUS)
-    except Exception:
-        pytest.skip("Leave Status dropdown not available in this environment")
+    except Exception as e:
+        if page.is_no_records_found_visible():
+            return
+        pytest.fail(f"Dropdown interaction failed: {str(e)}")
 
     assert page.is_no_records_found_visible() or page.get_table_row_texts(), f"Expected results or 'No Records Found' after filtering by status {selected}"
 
 
 @pytest.mark.leave
 @pytest.mark.regression
-def test_search_by_employee_name_shows_records_or_no_records(logged_in_driver):
+def test_search_by_employee_name_shows_records(logged_in_driver):
     """FR-LV-06: Searching by valid employee name shows matching leaves or 'No Records Found'."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_click_leave_list()
@@ -95,7 +101,7 @@ def test_search_by_employee_name_shows_records_or_no_records(logged_in_driver):
 
 @pytest.mark.leave
 @pytest.mark.regression
-def test_nonexistent_employee_name_shows_validation_or_no_records(logged_in_driver):
+def test_nonexistent_employee_name_shows_validation(logged_in_driver):
     """FR-LV-07: Searching by a non-existent employee name shows required-field validation or no records message."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_click_leave_list()

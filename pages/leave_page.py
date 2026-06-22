@@ -83,61 +83,73 @@ class LeavePage(BasePage):
 
 
     def select_first_dropdown_option(self, dropdown_locator: tuple) -> str:
-        # Select the first meaningful option from a dropdown, with fallbacks
+        # click dropdown
         try:
             self.action_click(*dropdown_locator)
         except Exception:
             try:
-                # fallback: click via JS
                 self.action_js_click(*dropdown_locator)
             except Exception:
-                # last resort: try clicking a nearby button element
-                try:
-                    parent_button = self.driver.find_element(By.XPATH, "(//label[normalize-space()=text()]/../following-sibling::div//button)[1]")
-                    self.driver.execute_script("arguments[0].click();", parent_button)
-                except Exception:
-                    pass
+                # last resort: continue and try to detect visible listboxes
+                pass
 
-        def option_list_ready(driver):
-            items = driver.find_elements(*self.LOC_DROPDOWN_OPTIONS)
-            return [i for i in items if i.is_displayed() and i.text.strip()]
+        # wait until a visible listbox appears and return its valid options
+        def get_visible_options(driver):
+            all_lists = driver.find_elements(By.XPATH, "//div[@role='listbox']")
+            visible_lists = [l for l in all_lists if l.is_displayed()]
 
-        options = WebDriverWait(self.driver, self.timeout).until(option_list_ready)
-        filtered = [o for o in options if o.text.strip().lower() not in ("-- select --", "select", "please select", "- select -")]
-        if not filtered:
-            filtered = options
-        if not filtered:
-            raise ValueError("No dropdown options available")
+            if not visible_lists:
+                return False
 
-        first = filtered[0]
+            # prefer the most recently visible list (some UIs render multiple)
+            active = visible_lists[-1]
+            options = active.find_elements(By.XPATH, ".//span[normalize-space()]")
+            valid = [
+                o for o in options
+                if o.is_displayed() and o.text.strip() and o.text.strip().lower() not in ("-- select --", "select", "please select", "- select -")
+            ]
+
+            return valid if valid else False
+
+        options = WebDriverWait(self.driver, self.timeout).until(get_visible_options)
+        first = options[0]
         text = first.text.strip()
         try:
             first.click()
         except Exception:
             try:
-                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'}); arguments[0].click();", first)
+                self.driver.execute_script("arguments[0].click();", first)
             except Exception:
-                # final fallback: use JS to set selection by dispatching click on option
-                try:
-                    self.driver.execute_script("arguments[0].click();", first)
-                except Exception:
-                    pass
+                pass
 
         return text
 
     def select_first_dropdown_option_and_search(self, dropdown_locator: tuple) -> str:
-        # Select first dropdown option then click Search and wait for results
         text = self.select_first_dropdown_option(dropdown_locator)
+
+        # wait overlay gone before clicking search
+        try:
+            self.action_dismiss_blocking_overlays()
+        except Exception:
+            pass
+
         self.action_click(*self.LOC_SEARCH_BUTTON)
         self.wait_for_search_results()
         return text
 
     def get_table_row_texts(self) -> list[str]:
+        # Ensure search results have settled (rows present, 'No Records', or validation)
         try:
-            wait_present(self.driver, *self.LOC_TABLE_ROWS, self.timeout)
+            self.wait_for_search_results()
+        except Exception:
+            # continue to attempt to read rows even if waiter timed out
+            pass
+
+        try:
+            rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
         except Exception:
             return []
-        rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
+
         return [r.text.strip() for r in rows if r.is_displayed() and r.text.strip()]
 
     def apply_date_filter(self, from_date: str, to_date: str) -> None:
