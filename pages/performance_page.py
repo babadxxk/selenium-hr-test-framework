@@ -83,6 +83,15 @@ class PerformancePage(BasePage):
                 except Exception:
                     return False
 
+            def open_employee_trackers_safe(self) -> None:
+                """Open Employee Trackers but swallow transient errors (test-friendly)."""
+                try:
+                    self.open_employee_trackers()
+                except Exception:
+                    # swallow; callers can still assert visibility via `is_employee_trackers_table_visible`
+                    return
+
+
     
 
     def add_kpi(self, kpi_name: str) -> None:
@@ -106,7 +115,15 @@ class PerformancePage(BasePage):
                 except Exception:
                     try:
                         el = self.driver.find_element(loc[0], loc[1])
-                        self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, kpi_name)
+                        # robust setter: focus, set value, dispatch input/change, blur
+                        self.driver.execute_script(
+                            "arguments[0].focus(); arguments[0].value = arguments[1];"
+                            "arguments[0].dispatchEvent(new Event('input',{bubbles:true}));"
+                            "arguments[0].dispatchEvent(new Event('change',{bubbles:true}));"
+                            "arguments[0].blur();",
+                            el,
+                            kpi_name,
+                        )
                         name_set = True
                         break
                     except Exception:
@@ -122,9 +139,29 @@ class PerformancePage(BasePage):
                     try:
                         if not inp.is_displayed():
                             continue
-                        self.driver.execute_script("arguments[0].focus(); arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", inp, kpi_name)
-                        name_set = True
-                        break
+                        # try multiple times to set and verify value
+                        for _ in range(3):
+                            try:
+                                self.driver.execute_script(
+                                    "arguments[0].focus(); arguments[0].value = arguments[1];"
+                                    "arguments[0].dispatchEvent(new Event('input',{bubbles:true}));"
+                                    "arguments[0].dispatchEvent(new Event('change',{bubbles:true}));"
+                                    "arguments[0].blur();",
+                                    inp,
+                                    kpi_name,
+                                )
+                            except Exception:
+                                pass
+                            # verify
+                            try:
+                                val = inp.get_attribute('value') or inp.get_attribute('textContent') or ''
+                                if val and kpi_name in val:
+                                    name_set = True
+                                    break
+                            except Exception:
+                                pass
+                        if name_set:
+                            break
                     except Exception:
                         continue
             except Exception:
@@ -156,10 +193,16 @@ class PerformancePage(BasePage):
                     opts = [o for o in self.driver.find_elements(*self.LOC_KPI_DROPDOWN_OPTIONS) if o.is_displayed() and o.text.strip()]
 
             if opts:
+                # prefer a non-placeholder option (skip values like '-- Select --')
+                filtered_opts = [o for o in opts if o.text.strip().lower() not in ("-- select --", "select", "please select", "- select -")]
+                pick = filtered_opts[0] if filtered_opts else opts[0]
                 try:
-                    opts[0].click()
+                    pick.click()
                 except Exception:
-                    self.driver.execute_script("arguments[0].click();", opts[0])
+                    try:
+                        self.driver.execute_script("arguments[0].click();", pick)
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -178,11 +221,36 @@ class PerformancePage(BasePage):
             except Exception:
                 pass
 
+        # give the UI a brief moment to process the save and update the table
+        try:
+            import time
+
+            time.sleep(1)
+        except Exception:
+            pass
+
+        # wait until the add form/modal is no longer visible (modal close indicates save processed)
+        try:
+            WebDriverWait(self.driver, 5).until(lambda d: not d.find_elements(By.XPATH, "//form|//div[contains(@class,'oxd-form')]") )
+        except Exception:
+            # ignore — test will refresh and verify rows next
+            pass
+
+        # verify success toast; return True if save reported success, False otherwise
+        try:
+            toast = wait_visible(self.driver, By.CSS_SELECTOR, "div.oxd-toast-content.oxd-toast-content--success", 5)
+            if toast:
+                return True
+        except Exception:
+            pass
+
+        return False
+
     def get_kpi_rows_text(self) -> list[str]:
         # Return list of KPI row texts if present
         try:
             wait_visible(self.driver, *self.LOC_PERF_TABLE, self.timeout)
-            rows = self.driver.find_elements(By.XPATH, "//table[@role='table']//tbody//tr")
+            rows = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-table-body')]//div[@role='row']")
             texts = [r.text.strip() for r in rows if r.text.strip()]
             if texts:
                 return texts
@@ -195,3 +263,21 @@ class PerformancePage(BasePage):
             return []
         except Exception:
             return []
+
+    def verify_kpi_present(self, kpi_name: str, timeout: int = 10) -> bool:
+        """Refresh + poll KPI rows and return True if `kpi_name` appears in any row.
+
+        Uses the existing skip_or_fail_on_no_records helper to wait for table population.
+        """
+        try:
+            from tests.conftest import skip_or_fail_on_no_records
+
+            try:
+                self.driver.refresh()
+            except Exception:
+                pass
+
+            rows = skip_or_fail_on_no_records(self.driver, self.get_kpi_rows_text, f"No KPI rows to verify after add ({kpi_name})", timeout=timeout)
+            return any(kpi_name in r for r in rows)
+        except Exception:
+            return False
