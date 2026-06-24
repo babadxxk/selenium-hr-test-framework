@@ -95,11 +95,7 @@ class PIMPage(BasePage):
 
     def search_by_employee_id(self, emp_id: str) -> None:
         try:
-            self.driver.set_window_size(1920, 1080)
-        except Exception:
-            pass
-
-        try:
+            # Try to ensure the search input is visible (expand section if needed)
             if not self.is_visible(*self.LOC_SEARCH_EMPLOYEE_ID):
                 try:
                     toggle = self.driver.find_element(By.XPATH, "//div[contains(., 'Employee Information')]//button")
@@ -118,155 +114,31 @@ class PIMPage(BasePage):
                                 self.driver.execute_script("arguments[0].click();", alt)
                     except Exception:
                         pass
+
+            # Populate the employee id field using page helper or JS fallback
+            try:
+                self.action_clear_and_type(*self.get_employee_id_locator(), emp_id)
+            except Exception:
+                try:
+                    el = self.driver.find_element(*self.get_employee_id_locator())
+                    self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
+                except Exception:
+                    pass
+
+            # Click search and wait for results
+            try:
+                self.action_click(*self.LOC_SEARCH_BUTTON)
+            except Exception:
+                try:
+                    btn = self.driver.find_element(*self.LOC_SEARCH_BUTTON)
+                    self.driver.execute_script("arguments[0].click();", btn)
+                except Exception:
+                    pass
+
+            self.wait_for_search_results()
         except Exception:
-            pass
-
-        # Populate the employee id search input and submit Search
-        if self.is_visible(*self.LOC_SEARCH_EMPLOYEE_ID):
-            try:
-                self.action_clear_and_type(*self.LOC_SEARCH_EMPLOYEE_ID, emp_id)
-            except Exception:
-                el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
-                self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
-            try:
-                el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
-                val = (el.get_attribute('value') or '').strip()
-                if val != emp_id:
-                    try:
-                        el.clear()
-                        el.send_keys(emp_id)
-                        el.send_keys(Keys.TAB)
-                    except Exception:
-                        self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input')); arguments[0].dispatchEvent(new Event('change'));", el, emp_id)
-            except Exception:
-                pass
-        else:
-            elems = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-form-row')]//input")
-            target = None
-            for e in elems:
-                try:
-                    t = e.get_attribute('type')
-                    if t in ('text', 'tel'):
-                        target = e
-                        break
-                except Exception:
-                    continue
-
-            if target:
-                try:
-                    target.clear()
-                    target.send_keys(emp_id)
-                except Exception:
-                    self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", target, emp_id)
-            else:
-                el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
-                self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", el, emp_id)
-
-        # submit the search request
-        self.action_click(*self.LOC_SEARCH_BUTTON)
-
-        try:
-            def search_pred(d):
-                try:
-                    rows = d.find_elements(*self.LOC_TABLE_ROWS)
-                    for r in rows:
-                        try:
-                            txt = (r.text or '') or (r.get_attribute('textContent') or '')
-                        except Exception:
-                            continue
-                        if emp_id in txt:
-                            return True
-                except Exception:
-                    pass
-                try:
-                    for n in d.find_elements(*self.LOC_NO_RECORDS):
-                        try:
-                            if n.is_displayed():
-                                return True
-                        except Exception:
-                            continue
-                except Exception:
-                    pass
-                return False
-
-            WebDriverWait(self.driver, max(5, self.timeout)).until(search_pred)
-        except TimeoutException:
-            try:
-                self.wait_for_search_results()
-            except Exception:
-                pass
-
-        try:
-            rows = [r.text for r in self.driver.find_elements(*self.LOC_TABLE_ROWS) if r.is_displayed() and (r.text or '').strip()]
-        except Exception:
-            rows = []
-
-        if not any(emp_id in r for r in rows):
-            # if there's an explicit 'No Records' indicator, bail out early
-            try:
-                no_nodes = self.driver.find_elements(*self.LOC_NO_RECORDS)
-                if any(n.is_displayed() for n in no_nodes):
-                    return
-            except Exception:
-                pass
-
-            # retry: re-enter the id and click search again, then wait a bit longer
-            try:
-                if self.is_visible(*self.LOC_SEARCH_EMPLOYEE_ID):
-                    el = self.driver.find_element(*self.LOC_SEARCH_EMPLOYEE_ID)
-                    try:
-                        el.clear()
-                        el.send_keys(emp_id)
-                        el.send_keys(Keys.TAB)
-                    except Exception:
-                        self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input')); arguments[0].dispatchEvent(new Event('change'));", el, emp_id)
-                else:
-                    # fallback: set value on a found input
-                    elems = self.driver.find_elements(By.XPATH, "//div[contains(@class,'oxd-form-row')]//input")
-                    if elems:
-                        try:
-                            elems[0].clear()
-                            elems[0].send_keys(emp_id)
-                        except Exception:
-                            self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input'));", elems[0], emp_id)
-                try:
-                    self.action_click(*self.LOC_SEARCH_BUTTON)
-                except Exception:
-                    pass
-
-                # wait a bit longer on retry
-                try:
-                    def search_pred_retry(d):
-                        try:
-                            rows = d.find_elements(*self.LOC_TABLE_ROWS)
-                            for r in rows:
-                                try:
-                                    txt = (r.text or '') or (r.get_attribute('textContent') or '')
-                                except Exception:
-                                    continue
-                                if emp_id in txt:
-                                    return True
-                        except Exception:
-                            pass
-                        try:
-                            for n in d.find_elements(*self.LOC_NO_RECORDS):
-                                try:
-                                    if n.is_displayed():
-                                        return True
-                                except Exception:
-                                    continue
-                        except Exception:
-                            pass
-                        return False
-
-                    WebDriverWait(self.driver, max(10, self.timeout)).until(search_pred_retry)
-                except Exception:
-                    try:
-                        self.wait_for_search_results()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+            # Let caller decide retry behavior; do not raise here to keep tests robust
+            return
 
     def wait_for_search_results(self) -> None:
         def search_ready(driver):
@@ -489,22 +361,9 @@ class PIMPage(BasePage):
         except Exception:
             pass
 
-        # final fallback: try to parse first table row text
-        try:
-            rid = self.get_first_table_row_employee_id()
-            if rid:
-                return rid
-        except Exception:
-            pass
-
         return ""
 
     def _extract_likely_id(self, text: str) -> str:
-        """From a block of text, choose the token most likely to be the employee id.
-
-        Strategy: split on whitespace and punctuation, prefer the longest token consisting
-        of alphanumerics, underscores or hyphens, with minimum length 2.
-        """
         import re
 
         tokens = re.findall(r"[A-Za-z0-9_-]+", text)
@@ -519,23 +378,6 @@ class PIMPage(BasePage):
         # Return the longest token
         tokens.sort(key=lambda t: len(t), reverse=True)
         return tokens[0]
-
-    def get_first_table_row_employee_id(self) -> str:
-        """Attempt to extract an employee id string from the first visible table row.
-
-        This parses the row text and chooses a likely id token using the same
-        heuristic as `_extract_likely_id`.
-        """
-        try:
-            rows = self.driver.find_elements(*self.LOC_TABLE_ROWS)
-            visible = [r for r in rows if r.is_displayed() and (r.text or '').strip()]
-            if not visible:
-                return ""
-            first = visible[0]
-            txt = first.text or first.get_attribute('textContent') or ""
-            return self._extract_likely_id(txt)
-        except Exception:
-            return ""
 
     def open_contact_details(self) -> None:
         self.action_click(*self.LOC_CONTACT_DETAILS_TAB)

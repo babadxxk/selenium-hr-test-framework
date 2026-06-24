@@ -23,7 +23,7 @@ def test_login_valid_credentials(driver, auth_credentials):
 @pytest.mark.auth
 @pytest.mark.regression
 def test_login_username_with_spaces(driver):
-    """FR-AUTH-01: Username with leading/trailing spaces authenticates after trim."""
+    """FR-AUTH-02: Username with leading/trailing spaces authenticates after trim."""
     users = load_json("data/users.json")["valid_users"]
     trimmed_user = next(
         (user for user in users if user.get("type") == "trimmed_username"),
@@ -44,7 +44,7 @@ def test_login_username_with_spaces(driver):
 @pytest.mark.regression
 @pytest.mark.parametrize("user", load_json("data/users.json")["invalid_users"])
 def test_login_invalid_credentials(driver, user, config):
-    """FR-AUTH-02/03/07: Invalid credentials and special characters show error."""
+    """FR-AUTH-03/07: Invalid credentials and special characters show error."""
     # Ensure a clean start on the login page to avoid cross-test session leakage
     driver.delete_all_cookies()
     driver.get(config["base_url"])
@@ -127,7 +127,7 @@ def test_session_invalidated_after_logout(driver, auth_credentials, config):
 @pytest.mark.auth
 @pytest.mark.regression
 def test_session_persists_after_dashboard_refresh(logged_in_driver):
-    """FR-AUTH-10: Refreshing dashboard retains active session."""
+    """FR-AUTH-11: Refreshing dashboard retains active session."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_refresh_dashboard()
     assert dashboard.is_state_on_dashboard()
@@ -136,7 +136,7 @@ def test_session_persists_after_dashboard_refresh(logged_in_driver):
 @pytest.mark.auth
 @pytest.mark.regression
 def test_session_persists_in_new_tab(logged_in_driver):
-    """FR-AUTH-10: Opening dashboard in new tab keeps authenticated session."""
+    """FR-AUTH-12: Opening dashboard in new tab keeps authenticated session."""
     original_handle = logged_in_driver.current_window_handle
     logged_in_driver.switch_to.new_window("tab")
     logged_in_driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index")

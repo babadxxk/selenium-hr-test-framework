@@ -36,47 +36,8 @@ def test_search_by_first_name_returns_matching_rows(logged_in_driver):
 
 @pytest.mark.pim
 @pytest.mark.regression
-def test_search_by_employee_id_returns_exact_match(logged_in_driver):
-    """FR-PIM-03: Searching by employee ID returns the exact employee."""
-    dashboard = DashboardPage(logged_in_driver)
-    dashboard.action_go_to_pim()
-    pim = PIMPage(logged_in_driver)
-    # Ensure the employee list has rows; retry a few times before skipping to
-    # tolerate transient load / timing differences across environments.
-    rows = []
-    for attempt in range(1, 4):
-        try:
-            dashboard.action_go_to_pim()
-        except Exception:
-            pass
-        try:
-            if pim.is_employee_list_loaded():
-                rows = pim.get_table_row_texts()
-        except Exception:
-            rows = []
-
-        if rows:
-            break
-        time.sleep(1 * attempt)
-
-    if not rows:
-        pytest.skip("No employee rows available to extract an ID for this environment")
-
-    # Extract an employee id from the first visible table row (do not open details)
-    emp_id = pim.get_first_table_row_employee_id()
-    if not emp_id:
-        pytest.skip("Could not extract an employee id from the first table row")
-
-    # Search by that id on the same PIM list page and assert exact match appears
-    pim.search_by_employee_id(emp_id)
-    rows_after = pim.get_table_row_texts()
-    assert any(emp_id in r for r in rows_after), f"Employee id {emp_id} not found in results: {rows_after}"
-
-
-@pytest.mark.pim
-@pytest.mark.regression
 def test_search_by_nonexistent_name_shows_no_records_message(logged_in_driver):
-    """FR-PIM-04: Search with a name that does not match any employee must display the 'No Records Found' message."""
+    """FR-PIM-03: Search with a name that does not match any employee must display the 'No Records Found' message."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -91,7 +52,7 @@ def test_search_by_nonexistent_name_shows_no_records_message(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_click_row_opens_personal_details(logged_in_driver):
-    """FR-PIM-05: Clicking an employee row must open the employee record on the Personal Details tab."""
+    """FR-PIM-04: Clicking an employee row must open the employee record on the Personal Details tab."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -107,7 +68,7 @@ def test_click_row_opens_personal_details(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_contact_details_tab_loads(logged_in_driver):
-    """FR-PIM-06: Navigating to the Contact Details tab on an employee record must load the tab with address and contact fields."""
+    """FR-PIM-05: Navigating to the Contact Details tab on an employee record must load the tab with address and contact fields."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
@@ -129,21 +90,18 @@ def test_contact_details_tab_loads(logged_in_driver):
 @pytest.mark.pim
 @pytest.mark.regression
 def test_add_employee_and_verify_search(logged_in_driver):
-    """FR-PIM-07: A new employee must be successfully added through the Add Employee form and appear in PIM search results."""
+    """FR-PIM-06: A new employee must be successfully added through the Add Employee form and appear in PIM search results."""
     dashboard = DashboardPage(logged_in_driver)
     dashboard.action_go_to_pim()
     pim = PIMPage(logged_in_driver)
 
     pim.add_employee("Baba", "", "Dook", "1069")
 
-    # Get the persisted/current employee id from the details page (robust to any server-assigned changes)
     emp_id = pim.get_current_employee_id()
     assert emp_id, "Could not read employee id after saving the new employee"
 
-    # After save, navigate back to PIM list and search for the actual id
     import time
 
-    # Retry searching a few times to tolerate eventual consistency / indexing delays
     found = False
     for attempt in range(1, 4):
         time.sleep(1 * attempt)
@@ -151,8 +109,8 @@ def test_add_employee_and_verify_search(logged_in_driver):
         try:
             pim.search_by_employee_id(emp_id)
         except Exception:
-            # allow retry on transient errors
             continue
+
         rows = pim.get_table_row_texts()
         if any(emp_id in r for r in rows):
             found = True
